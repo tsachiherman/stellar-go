@@ -47,6 +47,14 @@ func (i *BitmapIndex) SetActive(index uint32) error {
 	return i.setActive(index)
 }
 
+func (i *BitmapIndex) SetInactive(index uint32) error {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	return i.setInactive(index)
+}
+
+// bitShiftLeft returns a byte with the bit set corresponding to the index. In
+// other words, it flips the bit corresponding to the index's "position" mod-8.
 func bitShiftLeft(index uint32) byte {
 	if index%8 == 0 {
 		return 1
@@ -55,10 +63,18 @@ func bitShiftLeft(index uint32) byte {
 	}
 }
 
+// rangeFirstBit returns the index of the first *possible* active bit in the
+// bitmap. In other words, if you just have SetActive(12), this will return 9,
+// because you have one byte (0b0001_0000) and the *first* value the bitmap can
+// represent is 9.
 func (i *BitmapIndex) rangeFirstBit() uint32 {
 	return (i.firstBit-1)/8*8 + 1
 }
 
+// rangeLastBit returns the index of the last *possible* active bit in the
+// bitmap. In other words, if you just have SetActive(12), this will return 16,
+// because you have one byte (0b0001_0000) and the *last* value the bitmap can
+// represent is 16.
 func (i *BitmapIndex) rangeLastBit() uint32 {
 	return i.rangeFirstBit() + uint32(len(i.bitmap))*8 - 1
 }
@@ -106,6 +122,83 @@ func (i *BitmapIndex) setActive(index uint32) error {
 				i.bitmap[loc] = i.bitmap[loc] | b
 
 				i.lastBit = index
+			}
+		}
+	}
+
+	return nil
+}
+
+func (i *BitmapIndex) setInactive(index uint32) error {
+	// Is this index even active in the first place?
+	if i.firstBit == 0 || index < i.rangeFirstBit() || index > i.rangeLastBit() {
+		return nil // not really an error
+	}
+
+	loc := (index - i.rangeFirstBit()) / 8 // which byte?
+	b := bitShiftLeft(index)               // which bit w/in the byte?
+	i.bitmap[loc] &= ^b                    // unset only that bit
+
+	// If unsetting this bit made the first byte empty OR we unset the earliest
+	// set bit, we need to find the next "first" active bit.
+	if loc == 0 && i.firstBit == index {
+		// find the next active bit to set as the start
+		nextBit, err := i.nextActiveBit(index)
+		if err == io.EOF {
+			i.firstBit = 0
+			i.lastBit = 0
+			i.bitmap = []byte{}
+		} else if err != nil {
+			return err
+		} else {
+			i.firstBit = nextBit
+		}
+
+		for i.bitmap[0] == 0 {
+			i.bitmap = i.bitmap[1:] // trim first (now-empty) byte off
+		}
+	} else if int(loc) == len(i.bitmap)-1 {
+		if i.bitmap[loc] == 0 {
+			i.bitmap = i.bitmap[:loc-1] // trim last (now-empty) byte
+
+			// find the latest non-empty byte, to set as the new "end"
+			for j := len(i.bitmap) - 1; j >= 0; j-- {
+				if i.bitmap[j] == 0 {
+					continue
+				}
+
+				offset, _ := maxBitAfter(i.bitmap[j], 0)
+				byteOffset := uint32(len(i.bitmap)-1) * 8
+				i.lastBit = i.rangeFirstBit() + byteOffset + offset
+				i.bitmap = i.bitmap[:j+1]
+				break
+			}
+		} else {
+			// Otherwise, do we need to adjust the range?
+			var idx uint32 = 1
+			whichBit := index % 8
+			if whichBit != 0 {
+				idx = 8 - whichBit
+			}
+
+			_, ok := maxBitAfter(i.bitmap[loc], idx+1)
+
+			// Imagine we had 0b0011_0100 and we unset the last active bit.
+			//                     ^
+			// Then, we need to adjust our internal lastBit tracker to represent
+			// the ^ bit above. This means finding the first previous set bit.
+			if !ok { // no further bits are set
+				j := int(idx)
+				for ; j >= 0 && !ok; j-- {
+					_, ok = maxBitAfter(i.bitmap[loc], uint32(j))
+				}
+
+				// We know from the earlier conditional that *some* bit is set,
+				// so we know that j represents the index of the bit that's the
+				// new "last active" bit.
+				firstByte := i.rangeFirstBit()
+				byteOffset := uint32(len(i.bitmap)-1) * 8
+				i.lastBit = firstByte + byteOffset + uint32(j+1)
 			}
 		}
 	}

@@ -127,6 +127,70 @@ func TestSetActive(t *testing.T) {
 	assert.Equal(t, uint32(26), index.lastBit)
 }
 
+// TestSetInactive ensures that you can flip active bits off and the bitmap
+// compresses in size accordingly.
+func TestSetInactive(t *testing.T) {
+	index := &BitmapIndex{}
+	index.SetActive(17)
+	index.SetActive(17 + 9)
+	index.SetActive(17 + 9 + 10)
+	assert.Equal(t, []byte{0b1000_0000, 0b0100_0000, 0b0001_0000}, index.bitmap)
+
+	// disabling bits should work
+	index.SetInactive(17)
+	assert.False(t, index.isActive(17))
+
+	// it should trim off the first byte now
+	assert.Equal(t, []byte{0b0100_0000, 0b0001_0000}, index.bitmap)
+	assert.EqualValues(t, 17+9, index.firstBit)
+	assert.EqualValues(t, 17+9+10, index.lastBit)
+
+	// it should compress empty bytes on shrink
+	index = &BitmapIndex{}
+	index.SetActive(1)
+	index.SetActive(1 + 2)
+	index.SetActive(1 + 9)
+	index.SetActive(1 + 9 + 8 + 9)
+	assert.Equal(t, []byte{0b1010_0000, 0b0100_0000, 0b0000_0000, 0b0010_0000}, index.bitmap)
+
+	// ...from the left
+	index.SetInactive(1)
+	assert.Equal(t, []byte{0b0010_0000, 0b0100_0000, 0b0000_0000, 0b0010_0000}, index.bitmap)
+	index.SetInactive(3)
+	assert.Equal(t, []byte{0b0100_0000, 0b0000_0000, 0b0010_0000}, index.bitmap)
+	assert.EqualValues(t, 1+9, index.firstBit)
+	assert.EqualValues(t, 1+9+8+9, index.lastBit)
+
+	// ...and the right
+	index.SetInactive(1 + 9 + 8 + 9)
+	assert.Equal(t, []byte{0b0100_0000}, index.bitmap)
+	assert.EqualValues(t, 1+9, index.firstBit)
+	assert.EqualValues(t, 1+9, index.lastBit)
+
+	// ensure right-hand compression it works for multiple bytes, too
+	index = &BitmapIndex{}
+	index.SetActive(2)
+	index.SetActive(2 + 2)
+	index.SetActive(2 + 9)
+	index.SetActive(2 + 9 + 8 + 9)
+	index.SetActive(2 + 9 + 8 + 10)
+	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b0001_1000}, index.bitmap)
+
+	index.setInactive(2 + 9 + 8 + 10)
+	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b0001_0000}, index.bitmap)
+	assert.EqualValues(t, 2+9+8+9, index.lastBit)
+
+	index.setInactive(2 + 9 + 8 + 9)
+	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000}, index.bitmap)
+	assert.EqualValues(t, 2, index.firstBit)
+	assert.EqualValues(t, 2+9, index.lastBit)
+
+	index.setInactive(2 + 2)
+	assert.Equal(t, []byte{0b0100_0000, 0b0010_0000}, index.bitmap)
+	assert.EqualValues(t, 2, index.firstBit)
+	assert.EqualValues(t, 2+9, index.lastBit)
+}
+
 func TestNextActive(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		index := &BitmapIndex{}
