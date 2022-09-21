@@ -19,10 +19,11 @@ jobs:
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
       - name: Run linters & report
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
         with:
           version: v1.45.2
-          golangci_lint_flags: "-c .golangci.yml --allow-parallel-runners"
+          args: "-c .golangci.yml --allow-parallel-runners --out-format github-actions"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          skip-go-installation: true
+
 
