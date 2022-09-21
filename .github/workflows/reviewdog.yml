@@ -18,12 +18,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
+      - uses: actions/setup-go@v3
       - name: Run linters & report
-        uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
+        uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
         with:
-          version: v1.45.2
-          args: "-c .golangci.yml --allow-parallel-runners --out-format github-actions"
+          version: v3.2.0
+          args: --issues-exit-code=0
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          skip-go-installation: true
+
 
 
