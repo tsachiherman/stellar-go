@@ -18,8 +18,11 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
-          path: /home/runner/work/go/src/github.com/stellar
       - uses: actions/setup-go@v3
+    steps:
+      - run: |
+        mkdir -p /home/runner/work/go/src/github.com/stellar
+        mv /home/runner/work/go/go /home/runner/work/go/src/github.com/stellar
       - name: Run linters & report
         uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
         with:
