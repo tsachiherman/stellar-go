@@ -151,11 +151,9 @@ func (i *BitmapIndex) setInactive(index uint32) error {
 		} else if err != nil {
 			return err
 		} else {
+			// Trim all (now-)empty bytes off the front.
+			i.bitmap = i.bitmap[int(nextBit/8)-int(i.firstBit/8):]
 			i.firstBit = nextBit
-		}
-
-		for i.bitmap[0] == 0 {
-			i.bitmap = i.bitmap[1:] // trim first (now-empty) byte off
 		}
 	} else if int(loc) == len(i.bitmap)-1 {
 		if i.bitmap[loc] == 0 {
@@ -173,33 +171,35 @@ func (i *BitmapIndex) setInactive(index uint32) error {
 				i.bitmap = i.bitmap[:j+1]
 				break
 			}
-		} else {
-			// Otherwise, do we need to adjust the range?
-			var idx uint32 = 1
-			whichBit := index % 8
-			if whichBit != 0 {
-				idx = 8 - whichBit
-			}
+		} else if i.lastBit == index {
+			// Otherwise, do we need to adjust the range? Imagine we had
+			// 0b0011_0100 and we unset the last active bit.
+			//         ^
+			// Then, we need to adjust our internal lastBit tracker to represent
+			// the ^ bit above. This means finding the first previous set bit.
 
-			_, ok := maxBitAfter(i.bitmap[loc], idx+1)
+			// Get the "bit number" of the last active bit (i.e. the one we just
+			// turned off) to mark the starting point for the search.
+			idx := uint32(1)
+			if index%8 != 0 {
+				idx = 8 - (index % 8)
+			}
 
 			// Imagine we had 0b0011_0100 and we unset the last active bit.
 			//                     ^
 			// Then, we need to adjust our internal lastBit tracker to represent
 			// the ^ bit above. This means finding the first previous set bit.
-			if !ok { // no further bits are set
-				j := int(idx)
-				for ; j >= 0 && !ok; j-- {
-					_, ok = maxBitAfter(i.bitmap[loc], uint32(j))
-				}
-
-				// We know from the earlier conditional that *some* bit is set,
-				// so we know that j represents the index of the bit that's the
-				// new "last active" bit.
-				firstByte := i.rangeFirstBit()
-				byteOffset := uint32(len(i.bitmap)-1) * 8
-				i.lastBit = firstByte + byteOffset + uint32(j+1)
+			j, ok := int(idx), false
+			for ; j >= 0 && !ok; j-- {
+				_, ok = maxBitAfter(i.bitmap[loc], uint32(j))
 			}
+
+			// We know from the earlier conditional that *some* bit is set, so
+			// we know that j represents the index of the bit that's the new
+			// "last active" bit.
+			firstByte := i.rangeFirstBit()
+			byteOffset := 8 * uint32(len(i.bitmap)-1)
+			i.lastBit = firstByte + byteOffset + uint32(j) + 1
 		}
 	}
 

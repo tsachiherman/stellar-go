@@ -172,15 +172,20 @@ func TestSetInactive(t *testing.T) {
 	index.SetActive(2)
 	index.SetActive(2 + 2)
 	index.SetActive(2 + 9)
+	index.SetActive(2 + 9 + 8 + 6)
 	index.SetActive(2 + 9 + 8 + 9)
 	index.SetActive(2 + 9 + 8 + 10)
-	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b0001_1000}, index.bitmap)
+	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b1001_1000}, index.bitmap)
 
 	index.setInactive(2 + 9 + 8 + 10)
-	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b0001_0000}, index.bitmap)
+	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b1001_0000}, index.bitmap)
 	assert.EqualValues(t, 2+9+8+9, index.lastBit)
 
 	index.setInactive(2 + 9 + 8 + 9)
+	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000, 0b0000_0000, 0b1000_0000}, index.bitmap)
+	assert.EqualValues(t, 2+9+8+6, index.lastBit)
+
+	index.setInactive(2 + 9 + 8 + 6)
 	assert.Equal(t, []byte{0b0101_0000, 0b0010_0000}, index.bitmap)
 	assert.EqualValues(t, 2, index.firstBit)
 	assert.EqualValues(t, 2+9, index.lastBit)
