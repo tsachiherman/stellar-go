@@ -9,16 +9,14 @@ import (
 func TestCurrentServerTime(t *testing.T) {
 	t.Run("non-existing-host-name", func(t *testing.T) {
 		currentTime := currentServerTime("non-existing-host-name", 60)
-		defer func() {
-			serverTimeMapMutex.Lock()
-			ServerTimeMap["TestCurrentServerTime-server-behind"] = ServerTimeRecord{ServerTime: 27, LocalTimeRecorded: 23}
-			serverTimeMapMutex.Unlock()
-		}()
-
 		require.Zerof(t, currentTime, "server time for non-existing time is expected to be zero, but was %d instead", currentTime)
 	})
 
 	t.Run("server-behind", func(t *testing.T) {
+		serverTimeMapMutex.Lock()
+		ServerTimeMap["TestCurrentServerTime-server-behind"] = ServerTimeRecord{ServerTime: 27, LocalTimeRecorded: 23}
+		serverTimeMapMutex.Unlock()
+
 		currentTime := currentServerTime("TestCurrentServerTime-server-behind", 500)
 		defer func() {
 			serverTimeMapMutex.Lock()
