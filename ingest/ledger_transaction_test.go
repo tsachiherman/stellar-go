@@ -5,6 +5,7 @@ import (
 
 	"github.com/stellar/go/xdr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChangeAccountChangedExceptSignersInvalidType(t *testing.T) {
@@ -13,7 +14,9 @@ func TestChangeAccountChangedExceptSignersInvalidType(t *testing.T) {
 	}
 
 	assert.Panics(t, func() {
-		change.AccountChangedExceptSigners()
+		_, err := change.AccountChangedExceptSigners()
+		// the following is here only to avoid false-positive warning by the linter.
+		require.NoError(t, err)
 	})
 }
 
