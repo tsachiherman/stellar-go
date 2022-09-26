@@ -127,12 +127,6 @@ func (i *BitmapIndex) setActive(index uint32) error {
 	return nil
 }
 
-// distance returns how many bytes occur between the two given indices. Note
-// that j >= i, otherwise the result will be negative.
-func distance(i, j uint32) int {
-	return (int(j)-1)/8 - (int(i)-1)/8
-}
-
 func (i *BitmapIndex) setInactive(index uint32) error {
 	// Is this index even active in the first place?
 	if i.firstBit == 0 || index < i.rangeFirstBit() || index > i.rangeLastBit() {
@@ -156,8 +150,7 @@ func (i *BitmapIndex) setInactive(index uint32) error {
 			return err
 		} else {
 			// Trim all (now-)empty bytes off the front.
-			diff := distance(i.firstBit, nextBit)
-			i.bitmap = i.bitmap[diff:]
+			i.bitmap = i.bitmap[distance(i.firstBit, nextBit):]
 			i.firstBit = nextBit
 		}
 	} else if int(loc) == len(i.bitmap)-1 {
@@ -303,21 +296,6 @@ func (i *BitmapIndex) nextActiveBit(position uint32) (uint32, error) {
 	return 0, io.EOF
 }
 
-func maxBitAfter(b byte, after uint32) (uint32, bool) {
-	if b == 0 {
-		// empty byte
-		return 0, false
-	}
-
-	for shift := uint32(after); shift < 8; shift++ {
-		mask := byte(0b1000_0000) >> shift
-		if mask&b != 0 {
-			return shift, true
-		}
-	}
-	return 0, false
-}
-
 func (i *BitmapIndex) ToXDR() xdr.BitmapIndex {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
@@ -365,4 +343,25 @@ func (i *BitmapIndex) DebugCompare(j *BitmapIndex) string {
 	}
 
 	return strings.Join(output, "\n")
+}
+
+func maxBitAfter(b byte, after uint32) (uint32, bool) {
+	if b == 0 {
+		// empty byte
+		return 0, false
+	}
+
+	for shift := uint32(after); shift < 8; shift++ {
+		mask := byte(0b1000_0000) >> shift
+		if mask&b != 0 {
+			return shift, true
+		}
+	}
+	return 0, false
+}
+
+// distance returns how many bytes occur between the two given indices. Note
+// that j >= i, otherwise the result will be negative.
+func distance(i, j uint32) int {
+	return (int(j)-1)/8 - (int(i)-1)/8
 }
