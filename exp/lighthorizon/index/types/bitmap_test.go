@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -194,6 +195,39 @@ func TestSetInactive(t *testing.T) {
 	assert.Equal(t, []byte{0b0100_0000, 0b0010_0000}, index.bitmap)
 	assert.EqualValues(t, 2, index.firstBit)
 	assert.EqualValues(t, 2+9, index.lastBit)
+
+	index.setInactive(1) // should be a no-op
+	assert.Equal(t, []byte{0b0100_0000, 0b0010_0000}, index.bitmap)
+	assert.EqualValues(t, 2, index.firstBit)
+	assert.EqualValues(t, 2+9, index.lastBit)
+}
+
+// TestFuzzerSetInactive attempt to fuzz random bits into two bitmap sets, one
+// by addition, and one by subtraction - then, it compares the outcome.
+func TestFuzzySetUnset(t *testing.T) {
+	permLen := uint32(128) // should be a multiple of 8
+	setBitsCount := permLen / 2
+
+	for n := 0; n < 10_000; n++ {
+		randBits := rand.Perm(int(permLen))
+		setBits := randBits[:setBitsCount]
+		clearBits := randBits[setBitsCount:]
+
+		// set all first, then clear the others
+		clearBitmap := &BitmapIndex{}
+		for i := uint32(1); i <= permLen; i++ {
+			clearBitmap.setActive(i)
+		}
+
+		setBitmap := &BitmapIndex{}
+		for i := range setBits {
+			setBitmap.setActive(uint32(setBits[i]) + 1)
+			clearBitmap.setInactive(uint32(clearBits[i]) + 1)
+		}
+
+		require.Equalf(t, setBitmap, clearBitmap,
+			"bitmaps aren't equal:\n%s", setBitmap.DebugCompare(clearBitmap))
+	}
 }
 
 func TestNextActive(t *testing.T) {

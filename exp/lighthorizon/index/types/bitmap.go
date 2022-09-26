@@ -2,9 +2,12 @@ package index
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"strings"
 	"sync"
 
+	"github.com/stellar/go/support/ordered"
 	"github.com/stellar/go/xdr"
 )
 
@@ -102,20 +105,15 @@ func (i *BitmapIndex) setActive(index uint32) error {
 			// Expand the bitmap
 			if index < i.rangeFirstBit() {
 				// ...to the left
-				c := (i.rangeFirstBit() - index) / 8
-				if (i.rangeFirstBit()-index)%8 != 0 {
-					c++
-				}
-				newBytes := make([]byte, c)
+				newBytes := make([]byte, distance(index, i.rangeFirstBit()))
 				i.bitmap = append(newBytes, i.bitmap...)
-
 				b := bitShiftLeft(index)
 				i.bitmap[0] = i.bitmap[0] | b
 
 				i.firstBit = index
 			} else if index > i.rangeLastBit() {
 				// ... to the right
-				newBytes := make([]byte, (index-i.rangeLastBit())/8+1)
+				newBytes := make([]byte, distance(i.rangeLastBit(), index))
 				i.bitmap = append(i.bitmap, newBytes...)
 				b := bitShiftLeft(index)
 				loc := (index - i.rangeFirstBit()) / 8
@@ -127,6 +125,12 @@ func (i *BitmapIndex) setActive(index uint32) error {
 	}
 
 	return nil
+}
+
+// distance returns how many bytes occur between the two given indices. Note
+// that j >= i, otherwise the result will be negative.
+func distance(i, j uint32) int {
+	return (int(j)-1)/8 - (int(i)-1)/8
 }
 
 func (i *BitmapIndex) setInactive(index uint32) error {
@@ -152,54 +156,52 @@ func (i *BitmapIndex) setInactive(index uint32) error {
 			return err
 		} else {
 			// Trim all (now-)empty bytes off the front.
-			i.bitmap = i.bitmap[int(nextBit/8)-int(i.firstBit/8):]
+			diff := distance(i.firstBit, nextBit)
+			i.bitmap = i.bitmap[diff:]
 			i.firstBit = nextBit
 		}
 	} else if int(loc) == len(i.bitmap)-1 {
+		idx := -1
+
 		if i.bitmap[loc] == 0 {
-			i.bitmap = i.bitmap[:loc-1] // trim last (now-empty) byte
-
 			// find the latest non-empty byte, to set as the new "end"
-			for j := len(i.bitmap) - 1; j >= 0; j-- {
-				if i.bitmap[j] == 0 {
-					continue
-				}
-
-				offset, _ := maxBitAfter(i.bitmap[j], 0)
-				byteOffset := uint32(len(i.bitmap)-1) * 8
-				i.lastBit = i.rangeFirstBit() + byteOffset + offset
-				i.bitmap = i.bitmap[:j+1]
-				break
+			j := len(i.bitmap) - 1
+			for i.bitmap[j] == 0 {
+				j--
 			}
-		} else if i.lastBit == index {
-			// Otherwise, do we need to adjust the range? Imagine we had
-			// 0b0011_0100 and we unset the last active bit.
-			//         ^
-			// Then, we need to adjust our internal lastBit tracker to represent
-			// the ^ bit above. This means finding the first previous set bit.
 
+			i.bitmap = i.bitmap[:j+1]
+			idx = 8
+		} else if i.lastBit == index {
 			// Get the "bit number" of the last active bit (i.e. the one we just
 			// turned off) to mark the starting point for the search.
-			idx := uint32(1)
+			idx = 8
 			if index%8 != 0 {
-				idx = 8 - (index % 8)
+				idx = int(index % 8)
 			}
+		}
 
+		// Do we need to adjust the range? Imagine we had 0b0011_0100 and we
+		// unset the last active bit.
+		//         ^
+		// Then, we need to adjust our internal lastBit tracker to represent the
+		// ^ bit above. This means finding the first previous set bit.
+		if idx > -1 {
+			l := uint32(len(i.bitmap) - 1)
 			// Imagine we had 0b0011_0100 and we unset the last active bit.
 			//                     ^
 			// Then, we need to adjust our internal lastBit tracker to represent
 			// the ^ bit above. This means finding the first previous set bit.
 			j, ok := int(idx), false
 			for ; j >= 0 && !ok; j-- {
-				_, ok = maxBitAfter(i.bitmap[loc], uint32(j))
+				_, ok = maxBitAfter(i.bitmap[l], uint32(j))
 			}
 
 			// We know from the earlier conditional that *some* bit is set, so
 			// we know that j represents the index of the bit that's the new
 			// "last active" bit.
 			firstByte := i.rangeFirstBit()
-			byteOffset := 8 * uint32(len(i.bitmap)-1)
-			i.lastBit = firstByte + byteOffset + uint32(j) + 1
+			i.lastBit = firstByte + (l * 8) + uint32(j) + 1
 		}
 	}
 
@@ -342,4 +344,25 @@ func (i *BitmapIndex) Buffer() *bytes.Buffer {
 // Flush flushes the index data to byte slice in index format.
 func (i *BitmapIndex) Flush() []byte {
 	return i.Buffer().Bytes()
+}
+
+// DebugCompare returns a string that compares this bitmap to another bitmap
+// byte-by-byte in binary form as two columns.
+func (i *BitmapIndex) DebugCompare(j *BitmapIndex) string {
+	output := make([]string, ordered.Max(len(i.bitmap), len(j.bitmap)))
+	for n := 0; n < len(output); n++ {
+		if n < len(i.bitmap) {
+			output[n] += fmt.Sprintf("%08b", i.bitmap[n])
+		} else {
+			output[n] += "        "
+		}
+
+		output[n] += " | "
+
+		if n < len(j.bitmap) {
+			output[n] += fmt.Sprintf("%08b", j.bitmap[n])
+		}
+	}
+
+	return strings.Join(output, "\n")
 }
