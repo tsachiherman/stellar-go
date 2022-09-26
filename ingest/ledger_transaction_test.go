@@ -13,11 +13,12 @@ func TestChangeAccountChangedExceptSignersInvalidType(t *testing.T) {
 		Type: xdr.LedgerEntryTypeOffer,
 	}
 
+	var err error
 	assert.Panics(t, func() {
-		_, err := change.AccountChangedExceptSigners()
-		// the following is here only to avoid false-positive warning by the linter.
-		require.NoError(t, err)
+		_, err = change.AccountChangedExceptSigners()
 	})
+	// the following is here only to avoid false-positive warning by the linter.
+	require.NoError(t, err)
 }
 
 func TestFeeMetaAndOperationsChangesSeparate(t *testing.T) {
