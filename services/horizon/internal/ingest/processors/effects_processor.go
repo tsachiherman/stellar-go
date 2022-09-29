@@ -1027,8 +1027,8 @@ func (e *effectsWrapper) addClaimClaimableBalanceEffects(changes []ingest.Change
 
 		if change.Pre != nil && change.Post == nil {
 			cBalance = change.Pre.Data.MustClaimableBalance()
-			preBalanceID, err := xdr.MarshalHex(cBalance.BalanceId)
-			if err != nil {
+			preBalanceID, innerErr := xdr.MarshalHex(cBalance.BalanceId)
+			if innerErr != nil {
 				return fmt.Errorf("Invalid balanceId in meta changes for op: %d", e.operation.index)
 			}
 
