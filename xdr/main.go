@@ -18,7 +18,7 @@ import (
 
 // CommitHash is the commit hash that was used to generate the xdr in this folder.
 // During the process of updating the XDR, the text file below is being updated.
-// Than, during compile time, the file content are being embedded into the given string.
+// Then, during compile time, the file content are being embedded into the given string.
 //
 //go:embed xdr_commit_generated.txt
 var CommitHash string
