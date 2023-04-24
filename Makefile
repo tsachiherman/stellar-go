@@ -10,10 +10,11 @@ xdr/Stellar-types.x \
 xdr/Stellar-contract-env-meta.x \
 xdr/Stellar-contract-spec.x \
 xdr/Stellar-contract.x \
-xdr/Stellar-internal.x
+xdr/Stellar-internal.x \
+xdr/Stellar-contract-config-setting.x
 
 XDRGEN_COMMIT=80e38ef2a96489f6b501d4db3a350406e5aa3bab
-XDRNEXT_COMMIT=d01024346cc0a23e155b9cbf4dbf1780adf3890d
+XDRNEXT_COMMIT=95e988b896181d28055d61cc10a95448fe6f04b2
 
 .PHONY: xdr xdr-clean xdr-update
 
