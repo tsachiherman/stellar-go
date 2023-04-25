@@ -14,7 +14,7 @@ func TestCreateInvokeHostFunctionValid(t *testing.T) {
 
 	invokeHostFunctionOp := InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{},
@@ -31,7 +31,7 @@ func TestCreateInvokeHostFunctionValid(t *testing.T) {
 func TestCreateInvokeHostFunctionInvalid(t *testing.T) {
 	invokeHostFunctionOp := InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{},
@@ -52,7 +52,7 @@ func TestInvokeHostFunctionRoundTrip(t *testing.T) {
 	accountId := xdr.MustAddress("GB7BDSZU2Y27LYNLALKKALB52WS2IZWYBDGY6EQBLEED3TJOCVMZRH7H")
 	invokeHostFunctionOp := &InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{

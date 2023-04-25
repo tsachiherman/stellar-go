@@ -129,7 +129,7 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
 						Functions: []xdr.HostFunction{
-							xdr.HostFunction{
+							{
 								Args: xdr.HostFunctionArgs{
 									Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 									InvokeContract: &xdr.ScVec{
@@ -229,7 +229,7 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
 						Functions: []xdr.HostFunction{
-							xdr.HostFunction{
+							{
 								Args: xdr.HostFunctionArgs{
 									Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 									InvokeContract: &xdr.ScVec{},
@@ -310,7 +310,7 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
 						Functions: []xdr.HostFunction{
-							xdr.HostFunction{
+							{
 								Args: xdr.HostFunctionArgs{
 									Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
 									CreateContract: &xdr.CreateContractArgs{
@@ -366,7 +366,7 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
 						Functions: []xdr.HostFunction{
-							xdr.HostFunction{
+							{
 								Args: xdr.HostFunctionArgs{
 									Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
 									UploadContractWasm: &xdr.UploadContractWasmArgs{

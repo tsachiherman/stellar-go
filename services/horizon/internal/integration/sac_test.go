@@ -891,7 +891,7 @@ func i128Param(hi int64, lo uint64) xdr.ScVal {
 func createSAC(itest *integration.Test, sourceAccount string, asset xdr.Asset) *txnbuild.InvokeHostFunctions {
 	return addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
 					CreateContract: &xdr.CreateContractArgs{
@@ -917,7 +917,7 @@ func mint(itest *integration.Test, sourceAccount string, asset xdr.Asset, assetA
 func mintWithAmt(itest *integration.Test, sourceAccount string, asset xdr.Asset, assetAmount xdr.ScVal, recipient xdr.ScVal) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -948,7 +948,7 @@ func mintWithAmt(itest *integration.Test, sourceAccount string, asset xdr.Asset,
 func initAssetContract(itest *integration.Test, sourceAccount string, asset xdr.Asset, sacTestcontractID xdr.Hash) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -975,7 +975,7 @@ func initAssetContract(itest *integration.Test, sourceAccount string, asset xdr.
 func clawback(itest *integration.Test, sourceAccount string, asset xdr.Asset, assetAmount string, recipient xdr.ScVal) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -1006,7 +1006,7 @@ func clawback(itest *integration.Test, sourceAccount string, asset xdr.Asset, as
 func balance(itest *integration.Test, sourceAccount string, asset xdr.Asset, holder xdr.ScVal) *txnbuild.InvokeHostFunctions {
 	return addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -1034,7 +1034,7 @@ func xfer(itest *integration.Test, sourceAccount string, asset xdr.Asset, assetA
 func xferWithAmount(itest *integration.Test, sourceAccount string, asset xdr.Asset, assetAmount xdr.ScVal, recipient xdr.ScVal) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -1066,7 +1066,7 @@ func xferWithAmount(itest *integration.Test, sourceAccount string, asset xdr.Ass
 func burnSelf(itest *integration.Test, sourceAccount string, sacTestcontractID xdr.Hash, assetAmount string) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -1093,7 +1093,7 @@ func burnSelf(itest *integration.Test, sourceAccount string, sacTestcontractID x
 func xferFromContract(itest *integration.Test, sourceAccount string, sacTestcontractID xdr.Hash, assetAmount string, recipient xdr.ScVal) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -1122,7 +1122,7 @@ func xferFromContract(itest *integration.Test, sourceAccount string, sacTestcont
 func burn(itest *integration.Test, sourceAccount string, asset xdr.Asset, assetAmount string) *txnbuild.InvokeHostFunctions {
 	invokeHostFn := addFootprint(itest, &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{

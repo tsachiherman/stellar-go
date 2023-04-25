@@ -215,7 +215,7 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 
 	invokeHostFunctionOp := &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -321,7 +321,7 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 	//contractStateFootprintSym := xdr.ScSymbol("COUNTER")
 	invokeHostFunctionOp := &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 					InvokeContract: &xdr.ScVec{
@@ -398,7 +398,7 @@ func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFileN
 
 	return &txnbuild.InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
+			{
 				Args: xdr.HostFunctionArgs{
 					Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
 					UploadContractWasm: &xdr.UploadContractWasmArgs{
@@ -460,7 +460,7 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 
 	return &txnbuild.InvokeHostFunctions{
 			Functions: []xdr.HostFunction{
-				xdr.HostFunction{
+				{
 					Args: xdr.HostFunctionArgs{
 						Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
 						CreateContract: &xdr.CreateContractArgs{
