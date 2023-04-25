@@ -5,20 +5,16 @@ import (
 	"github.com/stellar/go/xdr"
 )
 
-type InvokeHostFunction struct {
-	Function      xdr.HostFunction
-	Footprint     xdr.LedgerFootprint
-	Auth          []xdr.ContractAuth
+type InvokeHostFunctions struct {
+	Functions     []xdr.HostFunction
 	SourceAccount string
 }
 
-func (f *InvokeHostFunction) BuildXDR() (xdr.Operation, error) {
+func (f *InvokeHostFunctions) BuildXDR() (xdr.Operation, error) {
 
 	opType := xdr.OperationTypeInvokeHostFunction
 	xdrOp := xdr.InvokeHostFunctionOp{
-		Function:  f.Function,
-		Footprint: f.Footprint,
-		Auth:      f.Auth,
+		Functions: f.Functions,
 	}
 
 	body, err := xdr.NewOperationBody(opType, xdrOp)
@@ -32,21 +28,19 @@ func (f *InvokeHostFunction) BuildXDR() (xdr.Operation, error) {
 	return op, nil
 }
 
-func (f *InvokeHostFunction) FromXDR(xdrOp xdr.Operation) error {
+func (f *InvokeHostFunctions) FromXDR(xdrOp xdr.Operation) error {
 	result, ok := xdrOp.Body.GetInvokeHostFunctionOp()
 	if !ok {
 		return errors.New("error parsing invoke host function operation from xdr")
 	}
 
 	f.SourceAccount = accountFromXDR(xdrOp.SourceAccount)
-	f.Auth = result.Auth
-	f.Footprint = result.Footprint
-	f.Function = result.Function
+	f.Functions = result.Functions
 
 	return nil
 }
 
-func (f *InvokeHostFunction) Validate() error {
+func (f *InvokeHostFunctions) Validate() error {
 	if f.SourceAccount != "" {
 		_, err := xdr.AddressToMuxedAccount(f.SourceAccount)
 		if err != nil {
@@ -56,6 +50,6 @@ func (f *InvokeHostFunction) Validate() error {
 	return nil
 }
 
-func (f *InvokeHostFunction) GetSourceAccount() string {
+func (f *InvokeHostFunctions) GetSourceAccount() string {
 	return f.SourceAccount
 }

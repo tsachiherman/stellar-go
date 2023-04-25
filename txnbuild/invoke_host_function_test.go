@@ -12,12 +12,16 @@ func TestCreateInvokeHostFunctionValid(t *testing.T) {
 	kp1 := newKeypair1()
 	sourceAccount := NewSimpleAccount(kp1.Address(), int64(41137196761100))
 
-	invokeHostFunctionOp := InvokeHostFunction{
-		Function: xdr.HostFunction{
-			Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-			InvokeArgs: &xdr.ScVec{},
+	invokeHostFunctionOp := InvokeHostFunctions{
+		Functions: []xdr.HostFunction{
+			xdr.HostFunction{
+				Args: xdr.HostFunctionArgs{
+					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+					InvokeContract: &xdr.ScVec{},
+				},
+				Auth: []xdr.ContractAuth{},
+			},
 		},
-		Footprint:     xdr.LedgerFootprint{},
 		SourceAccount: sourceAccount.AccountID,
 	}
 
@@ -25,12 +29,16 @@ func TestCreateInvokeHostFunctionValid(t *testing.T) {
 }
 
 func TestCreateInvokeHostFunctionInvalid(t *testing.T) {
-	invokeHostFunctionOp := InvokeHostFunction{
-		Function: xdr.HostFunction{
-			Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-			InvokeArgs: &xdr.ScVec{},
+	invokeHostFunctionOp := InvokeHostFunctions{
+		Functions: []xdr.HostFunction{
+			xdr.HostFunction{
+				Args: xdr.HostFunctionArgs{
+					Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+					InvokeContract: &xdr.ScVec{},
+				},
+				Auth: []xdr.ContractAuth{},
+			},
 		},
-		Footprint:     xdr.LedgerFootprint{},
 		SourceAccount: "invalid account value",
 	}
 
@@ -39,38 +47,42 @@ func TestCreateInvokeHostFunctionInvalid(t *testing.T) {
 
 func TestInvokeHostFunctionRoundTrip(t *testing.T) {
 	val := xdr.Int32(4)
-	wasmId := xdr.Hash{1, 2, 3, 4}
-	i64 := xdr.Int64(45)
+	//wasmId := xdr.Hash{1, 2, 3, 4}
+	//i64 := xdr.Int64(45)
 	accountId := xdr.MustAddress("GB7BDSZU2Y27LYNLALKKALB52WS2IZWYBDGY6EQBLEED3TJOCVMZRH7H")
-	invokeHostFunctionOp := &InvokeHostFunction{
-		Function: xdr.HostFunction{
-			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-			InvokeArgs: &xdr.ScVec{
-				xdr.ScVal{
-					Type: xdr.ScValTypeScvI32,
-					I32:  &val,
-				},
-			},
-		},
-		Auth: []xdr.ContractAuth{
-			{
-				AddressWithNonce: &xdr.AddressWithNonce{
-					Address: xdr.ScAddress{
-						Type:      xdr.ScAddressTypeScAddressTypeAccount,
-						AccountId: &accountId,
+	invokeHostFunctionOp := &InvokeHostFunctions{
+		Functions: []xdr.HostFunction{
+			xdr.HostFunction{
+				Args: xdr.HostFunctionArgs{
+					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+					InvokeContract: &xdr.ScVec{
+						xdr.ScVal{
+							Type: xdr.ScValTypeScvI32,
+							I32:  &val,
+						},
 					},
-					Nonce: 0,
 				},
-				RootInvocation: xdr.AuthorizedInvocation{
-					ContractId:     xdr.Hash{0xaa, 0xbb},
-					FunctionName:   "foo",
-					Args:           nil,
-					SubInvocations: nil,
+				Auth: []xdr.ContractAuth{
+					{
+						AddressWithNonce: &xdr.AddressWithNonce{
+							Address: xdr.ScAddress{
+								Type:      xdr.ScAddressTypeScAddressTypeAccount,
+								AccountId: &accountId,
+							},
+							Nonce: 0,
+						},
+						RootInvocation: xdr.AuthorizedInvocation{
+							ContractId:     xdr.Hash{0xaa, 0xbb},
+							FunctionName:   "foo",
+							Args:           nil,
+							SubInvocations: nil,
+						},
+						SignatureArgs: nil,
+					},
 				},
-				SignatureArgs: nil,
 			},
 		},
-		Footprint: xdr.LedgerFootprint{
+		/*Footprint: xdr.LedgerFootprint{
 			ReadOnly: []xdr.LedgerKey{
 				{
 					Type: xdr.LedgerEntryTypeContractData,
@@ -98,7 +110,7 @@ func TestInvokeHostFunctionRoundTrip(t *testing.T) {
 					},
 				},
 			},
-		},
+		},*/
 		SourceAccount: "GB7BDSZU2Y27LYNLALKKALB52WS2IZWYBDGY6EQBLEED3TJOCVMZRH7H",
 	}
 	testOperationsMarshallingRoundtrip(t, []Operation{invokeHostFunctionOp}, false)

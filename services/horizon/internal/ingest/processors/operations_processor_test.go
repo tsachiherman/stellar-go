@@ -109,9 +109,9 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 	contractParamVal5 := xdr.ScBytes([]byte{0, 1, 2})
 	contractParamVal6 := true
 
-	ledgerKeyAccount := xdr.LedgerKeyAccount{
+	/*ledgerKeyAccount := xdr.LedgerKeyAccount{
 		AccountId: source.ToAccountId(),
-	}
+	}*/
 
 	tx := ingest.LedgerTransaction{
 		UnsafeMeta: xdr.TransactionMeta{
@@ -128,44 +128,40 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 				Body: xdr.OperationBody{
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
-						Function: xdr.HostFunction{
-							Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-							InvokeArgs: &xdr.ScVec{
-								{
-									Type: xdr.ScValTypeScvSymbol,
-									Sym:  &contractParamVal1,
-								},
-								{
-									Type: xdr.ScValTypeScvI32,
-									I32:  &contractParamVal2,
-								},
-								{
-									Type: xdr.ScValTypeScvU32,
-									U32:  &contractParamVal3,
-								},
-								{
-									Type: xdr.ScValTypeScvU64,
-									U64:  &contractParamVal4,
-								},
-								{
-									Type:  xdr.ScValTypeScvBytes,
-									Bytes: &contractParamVal5,
-								},
-								{
-									Type: xdr.ScValTypeScvBool,
-									B:    &contractParamVal6,
-								},
-								{
-									// invalid ScVal
-									Type: 5555,
-								},
-							},
-						},
-						Footprint: xdr.LedgerFootprint{
-							ReadOnly: []xdr.LedgerKey{
-								{
-									Type:    xdr.LedgerEntryTypeAccount,
-									Account: &ledgerKeyAccount,
+						Functions: []xdr.HostFunction{
+							xdr.HostFunction{
+								Args: xdr.HostFunctionArgs{
+									Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+									InvokeContract: &xdr.ScVec{
+										{
+											Type: xdr.ScValTypeScvSymbol,
+											Sym:  &contractParamVal1,
+										},
+										{
+											Type: xdr.ScValTypeScvI32,
+											I32:  &contractParamVal2,
+										},
+										{
+											Type: xdr.ScValTypeScvU32,
+											U32:  &contractParamVal3,
+										},
+										{
+											Type: xdr.ScValTypeScvU64,
+											U64:  &contractParamVal4,
+										},
+										{
+											Type:  xdr.ScValTypeScvBytes,
+											Bytes: &contractParamVal5,
+										},
+										{
+											Type: xdr.ScValTypeScvBool,
+											B:    &contractParamVal6,
+										},
+										{
+											// invalid ScVal
+											Type: 5555,
+										},
+									},
 								},
 							},
 						},
@@ -178,12 +174,12 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 		s.Assert().NoError(err)
 		s.Assert().Equal(details["function"].(string), "HostFunctionTypeHostFunctionTypeInvokeContract")
 
-		raw, err := wrapper.operation.Body.InvokeHostFunctionOp.Footprint.MarshalBinary()
+		/*raw, err := wrapper.operation.Body.InvokeHostFunctionOp.Footprint.MarshalBinary()
 		s.Assert().NoError(err)
-		s.Assert().Equal(details["footprint"].(string), base64.StdEncoding.EncodeToString(raw))
+		s.Assert().Equal(details["footprint"].(string), base64.StdEncoding.EncodeToString(raw))*/
 
 		serializedParams := details["parameters"].([]map[string]string)
-		var args []xdr.ScVal = *(wrapper.operation.Body.InvokeHostFunctionOp.Function.InvokeArgs)
+		var args []xdr.ScVal = *(wrapper.operation.Body.InvokeHostFunctionOp.Functions[0].Args.InvokeContract)
 		s.assertInvokeHostFunctionParameter(serializedParams, 0, "Sym", args[0])
 		s.assertInvokeHostFunctionParameter(serializedParams, 1, "I32", args[1])
 		s.assertInvokeHostFunctionParameter(serializedParams, 2, "U32", args[2])
@@ -232,17 +228,21 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 				Body: xdr.OperationBody{
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
-						Function: xdr.HostFunction{
-							Type:       xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-							InvokeArgs: &xdr.ScVec{},
-						},
-						Footprint: xdr.LedgerFootprint{
-							ReadOnly: []xdr.LedgerKey{
-								{
-									Type:    xdr.LedgerEntryTypeAccount,
-									Account: &ledgerKeyAccount,
+						Functions: []xdr.HostFunction{
+							xdr.HostFunction{
+								Args: xdr.HostFunctionArgs{
+									Type:           xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+									InvokeContract: &xdr.ScVec{},
 								},
 							},
+							/*Footprint: xdr.LedgerFootprint{
+								ReadOnly: []xdr.LedgerKey{
+									{
+										Type:    xdr.LedgerEntryTypeAccount,
+										Account: &ledgerKeyAccount,
+									},
+								},
+							},*/
 						},
 					},
 				},
@@ -309,30 +309,34 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 				Body: xdr.OperationBody{
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
-						Function: xdr.HostFunction{
-							Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
-							CreateContractArgs: &xdr.CreateContractArgs{
-								ContractId: xdr.ContractId{
-									Type: xdr.ContractIdTypeContractIdFromEd25519PublicKey,
-									FromEd25519PublicKey: &xdr.ContractIdFromEd25519PublicKey{
-										Key:       *sourcePublicKey,
-										Signature: signature,
-										Salt:      salt,
+						Functions: []xdr.HostFunction{
+							xdr.HostFunction{
+								Args: xdr.HostFunctionArgs{
+									Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+									CreateContract: &xdr.CreateContractArgs{
+										ContractId: xdr.ContractId{
+											Type: xdr.ContractIdTypeContractIdFromEd25519PublicKey,
+											FromEd25519PublicKey: &xdr.ContractIdFromEd25519PublicKey{
+												Key:       *sourcePublicKey,
+												Signature: signature,
+												Salt:      salt,
+											},
+										},
+										Source: xdr.ScContractExecutable{
+											Type: xdr.ScContractExecutableTypeSccontractExecutableToken,
+										},
 									},
-								},
-								Source: xdr.ScContractExecutable{
-									Type: xdr.ScContractExecutableTypeSccontractExecutableToken,
 								},
 							},
 						},
-						Footprint: xdr.LedgerFootprint{
+						/*Footprint: xdr.LedgerFootprint{
 							ReadOnly: []xdr.LedgerKey{
 								{
 									Type:    xdr.LedgerEntryTypeAccount,
 									Account: &ledgerKeyAccount,
 								},
 							},
-						},
+						},*/
 					},
 				},
 			},
@@ -342,9 +346,9 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 		s.Assert().NoError(err)
 		s.Assert().Equal(details["function"].(string), "HostFunctionTypeHostFunctionTypeCreateContract")
 
-		raw, err := wrapper.operation.Body.InvokeHostFunctionOp.Footprint.MarshalBinary()
+		/*raw, err := wrapper.operation.Body.InvokeHostFunctionOp.Footprint.MarshalBinary()
 		s.Assert().NoError(err)
-		s.Assert().Equal(details["footprint"].(string), base64.StdEncoding.EncodeToString(raw))
+		s.Assert().Equal(details["footprint"].(string), base64.StdEncoding.EncodeToString(raw))*/
 
 		s.Assert().Equal(details["type"].(string), "ContractIdTypeContractIdFromEd25519PublicKey")
 		s.Assert().Equal(details["key"].(string), sourceAddress)
@@ -361,19 +365,23 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 				Body: xdr.OperationBody{
 					Type: xdr.OperationTypeInvokeHostFunction,
 					InvokeHostFunctionOp: &xdr.InvokeHostFunctionOp{
-						Function: xdr.HostFunction{
-							Type: xdr.HostFunctionTypeHostFunctionTypeInstallContractCode,
-							InstallContractCodeArgs: &xdr.InstallContractCodeArgs{
-								Code: code,
-							},
-						},
-						Footprint: xdr.LedgerFootprint{
-							ReadOnly: []xdr.LedgerKey{
-								{
-									Type:    xdr.LedgerEntryTypeAccount,
-									Account: &ledgerKeyAccount,
+						Functions: []xdr.HostFunction{
+							xdr.HostFunction{
+								Args: xdr.HostFunctionArgs{
+									Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
+									UploadContractWasm: &xdr.UploadContractWasmArgs{
+										Code: code,
+									},
 								},
 							},
+							/*Footprint: xdr.LedgerFootprint{
+								ReadOnly: []xdr.LedgerKey{
+									{
+										Type:    xdr.LedgerEntryTypeAccount,
+										Account: &ledgerKeyAccount,
+									},
+								},
+							},*/
 						},
 					},
 				},
@@ -382,11 +390,11 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 
 		details, err := wrapper.Details()
 		s.Assert().NoError(err)
-		s.Assert().Equal(details["function"].(string), "HostFunctionTypeHostFunctionTypeInstallContractCode")
+		s.Assert().Equal("HostFunctionTypeHostFunctionTypeUploadContractWasm", details["function"].(string))
 
-		raw, err := wrapper.operation.Body.InvokeHostFunctionOp.Footprint.MarshalBinary()
+		/*raw, err := wrapper.operation.Body.InvokeHostFunctionOp.Footprint.MarshalBinary()
 		s.Assert().NoError(err)
-		s.Assert().Equal(details["footprint"].(string), base64.StdEncoding.EncodeToString(raw))
+		s.Assert().Equal(details["footprint"].(string), base64.StdEncoding.EncodeToString(raw))*/
 
 		s.Assert().Equal(details["code"].(string), base64.StdEncoding.EncodeToString(code))
 	})
