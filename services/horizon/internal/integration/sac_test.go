@@ -1212,7 +1212,7 @@ func addAuthNextInvokerFlow(fnName string, contractId xdr.Hash, args xdr.ScVec) 
 func mustCreateAndInstallContract(itest *integration.Test, signer *keypair.Full, contractSalt string, wasmFileName string) xdr.Hash {
 	installContractOp := assembleInstallContractCodeOp(itest.CurrentTest(), itest.Master().Address(), wasmFileName)
 	assertInvokeHostFnSucceeds(itest, signer, installContractOp)
-	createContractOp := assembleCreateContractOp(itest.CurrentTest(), itest.Master().Address(), wasmFileName, contractSalt, itest.GetPassPhrase())
+	createContractOp, createContractFootPrint := assembleCreateContractOp(itest.CurrentTest(), itest.Master().Address(), wasmFileName, contractSalt, itest.GetPassPhrase())
 	assertInvokeHostFnSucceeds(itest, signer, createContractOp)
-	return createContractOp.Footprint.ReadWrite[0].MustContractData().ContractId
+	return createContractFootPrint.ReadWrite[0].MustContractData().ContractId
 }

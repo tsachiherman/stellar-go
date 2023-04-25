@@ -126,23 +126,21 @@ func TestContractInvokeHostFunctionCreateContractBySourceAccount(t *testing.T) {
 	// Create the contract
 
 	require.NoError(t, err)
-	createContractOp := assembleCreateContractOp(t, itest.Master().Address(), add_u64_contract, "a1", itest.GetPassPhrase())
+	createContractOp, createContractFootprint := assembleCreateContractOp(t, itest.Master().Address(), add_u64_contract, "a1", itest.GetPassPhrase())
 	opXDR, err := createContractOp.BuildXDR()
 	require.NoError(t, err)
 
 	invokeHostFunctionOp := opXDR.Body.MustInvokeHostFunctionOp()
-	expectedFootPrint, err := xdr.MarshalBase64(invokeHostFunctionOp.Footprint)
+	expectedFootPrint, err := xdr.MarshalBase64(createContractFootprint)
 	require.NoError(t, err)
 
-	// clear footprint so we can verify preflight response
-	invokeHostFunctionOp.Footprint = xdr.LedgerFootprint{}
 	response, err := itest.CoreClient().Preflight(
 		context.Background(),
 		createContractOp.SourceAccount,
 		invokeHostFunctionOp,
 	)
 	require.NoError(t, err)
-	err = xdr.SafeUnmarshalBase64(response.Footprint, &invokeHostFunctionOp.Footprint)
+	err = xdr.SafeUnmarshalBase64(response.Footprint, createContractFootprint)
 	require.NoError(t, err)
 	require.Equal(t, stellarcore.PreflightStatusOk, response.Status)
 	require.Equal(t, expectedFootPrint, response.Footprint)
@@ -192,13 +190,13 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 
 	// Create the contract
 
-	createContractOp := assembleCreateContractOp(t, itest.Master().Address(), add_u64_contract, "a1", itest.GetPassPhrase())
+	createContractOp, createContractFootprint := assembleCreateContractOp(t, itest.Master().Address(), add_u64_contract, "a1", itest.GetPassPhrase())
 	tx, err := itest.SubmitOperations(&sourceAccount, itest.Master(), createContractOp)
 	require.NoError(t, err)
 
 	// contract has been deployed, now invoke a simple 'add' fn on the contract
-	contractID := createContractOp.Footprint.ReadWrite[0].MustContractData().ContractId
-	//contractCodeLedgerKey := createContractOp.Footprint.ReadOnly[0]
+	contractID := createContractFootprint.ReadWrite[0].MustContractData().ContractId
+	//contractCodeLedgerKey := createContractFootprint.ReadOnly[0]
 
 	contractIdBytes := contractID[:]
 	contractIdParameter := xdr.ScVal{
@@ -235,7 +233,10 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 				},
 			},
 		},
-		/*Footprint: xdr.LedgerFootprint{
+		SourceAccount: sourceAccount.AccountID,
+	}
+	/*
+		invokeHostFunctionFootprint := xdr.LedgerFootprint{
 			ReadOnly: []xdr.LedgerKey{
 				{
 					Type: xdr.LedgerEntryTypeContractData,
@@ -250,9 +251,7 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 				contractCodeLedgerKey,
 			},
 			ReadWrite: []xdr.LedgerKey{},
-		},*/
-		SourceAccount: sourceAccount.AccountID,
-	}
+		}*/
 
 	tx, err = itest.SubmitOperations(&sourceAccount, itest.Master(), invokeHostFunctionOp)
 	require.NoError(t, err)
@@ -299,13 +298,13 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 
 	// Create the contract
 
-	createContractOp := assembleCreateContractOp(t, itest.Master().Address(), increment_contract, "a1", itest.GetPassPhrase())
+	createContractOp, createContractFootPrint := assembleCreateContractOp(t, itest.Master().Address(), increment_contract, "a1", itest.GetPassPhrase())
 	tx, err := itest.SubmitOperations(&sourceAccount, itest.Master(), createContractOp)
 	require.NoError(t, err)
 
 	// contract has been deployed, now invoke a simple 'add' fn on the contract
-	contractID := createContractOp.Footprint.ReadWrite[0].MustContractData().ContractId
-	//contractCodeLedgerKey := createContractOp.Footprint.ReadOnly[0]
+	contractID := createContractFootPrint.ReadWrite[0].MustContractData().ContractId
+	//contractCodeLedgerKey := createContractFootPrint.ReadOnly[0]
 
 	contractIdBytes := contractID[:]
 	contractIdParameter := xdr.ScVal{
@@ -332,35 +331,35 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 				},
 			},
 		},
-		/*Footprint: xdr.LedgerFootprint{
-			ReadOnly: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractData,
-					ContractData: &xdr.LedgerKeyContractData{
-						ContractId: contractID,
-						Key: xdr.ScVal{
-							Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
-							// symbolic: no value
-						},
-					},
-				},
-				contractCodeLedgerKey,
-			},
-			ReadWrite: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractData,
-					ContractData: &xdr.LedgerKeyContractData{
-						ContractId: contractID,
-						Key: xdr.ScVal{
-							Type: xdr.ScValTypeScvSymbol,
-							Sym:  &contractStateFootprintSym,
-						},
-					},
-				},
-			},
-		},*/
 		SourceAccount: sourceAccount.AccountID,
 	}
+	/*invokeHostFunctionFootPrint := xdr.LedgerFootprint{
+		ReadOnly: []xdr.LedgerKey{
+			{
+				Type: xdr.LedgerEntryTypeContractData,
+				ContractData: &xdr.LedgerKeyContractData{
+					ContractId: contractID,
+					Key: xdr.ScVal{
+						Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
+						// symbolic: no value
+					},
+				},
+			},
+			contractCodeLedgerKey,
+		},
+		ReadWrite: []xdr.LedgerKey{
+			{
+				Type: xdr.LedgerEntryTypeContractData,
+				ContractData: &xdr.LedgerKeyContractData{
+					ContractId: contractID,
+					Key: xdr.ScVal{
+						Type: xdr.ScValTypeScvSymbol,
+						Sym:  &contractStateFootprintSym,
+					},
+				},
+			},
+		},
+	}*/
 
 	tx, err = itest.SubmitOperations(&sourceAccount, itest.Master(), invokeHostFunctionOp)
 	require.NoError(t, err)
@@ -422,7 +421,7 @@ func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFileN
 	}
 }
 
-func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName string, contractSalt string, passPhrase string) *txnbuild.InvokeHostFunctions {
+func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName string, contractSalt string, passPhrase string) (*txnbuild.InvokeHostFunctions, *xdr.LedgerFootprint) {
 	// Assemble the InvokeHostFunction CreateContract operation:
 	// CAP-0047 - https://github.com/stellar/stellar-protocol/blob/master/core/cap-0047.md#creating-a-contract-using-invokehostfunctionop
 
@@ -441,9 +440,9 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 		},
 	}
 	preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount)
-	/*xdrPreImageBytes, err := preImage.MarshalBinary()
+	xdrPreImageBytes, err := preImage.MarshalBinary()
 	require.NoError(t, err)
-	hashedContractID := sha256.Sum256(xdrPreImageBytes)*/
+	hashedContractID := sha256.Sum256(xdrPreImageBytes)
 
 	saltParameter := xdr.Uint256(salt)
 
@@ -451,33 +450,35 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 	assert.NoError(t, err)
 	contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
 
-	/*ledgerKey := xdr.LedgerKeyContractData{
+	ledgerKey := xdr.LedgerKeyContractData{
 		ContractId: xdr.Hash(hashedContractID),
 		Key: xdr.ScVal{
 			Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
 			// symbolic: no value
 		},
-	}*/
+	}
 
 	return &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			xdr.HostFunction{
-				Args: xdr.HostFunctionArgs{
-					Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
-					CreateContract: &xdr.CreateContractArgs{
-						ContractId: xdr.ContractId{
-							Type: xdr.ContractIdTypeContractIdFromSourceAccount,
-							Salt: &saltParameter,
-						},
-						Source: xdr.ScContractExecutable{
-							Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-							WasmId: &contractHash,
+			Functions: []xdr.HostFunction{
+				xdr.HostFunction{
+					Args: xdr.HostFunctionArgs{
+						Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+						CreateContract: &xdr.CreateContractArgs{
+							ContractId: xdr.ContractId{
+								Type: xdr.ContractIdTypeContractIdFromSourceAccount,
+								Salt: &saltParameter,
+							},
+							Source: xdr.ScContractExecutable{
+								Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
+								WasmId: &contractHash,
+							},
 						},
 					},
 				},
 			},
-		},
-		/*Footprint: xdr.LedgerFootprint{
+			/*Footprint: ,*/
+			SourceAccount: sourceAccount,
+		}, &xdr.LedgerFootprint{
 			ReadWrite: []xdr.LedgerKey{
 				{
 					Type:         xdr.LedgerEntryTypeContractData,
@@ -492,7 +493,6 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 					},
 				},
 			},
-		},*/
-		SourceAccount: sourceAccount,
-	}
+		}
+
 }
