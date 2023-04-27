@@ -47,8 +47,8 @@ func TestCreateInvokeHostFunctionInvalid(t *testing.T) {
 
 func TestInvokeHostFunctionRoundTrip(t *testing.T) {
 	val := xdr.Int32(4)
-	//wasmId := xdr.Hash{1, 2, 3, 4}
-	//i64 := xdr.Int64(45)
+	wasmId := xdr.Hash{1, 2, 3, 4}
+	i64 := xdr.Int64(45)
 	accountId := xdr.MustAddress("GB7BDSZU2Y27LYNLALKKALB52WS2IZWYBDGY6EQBLEED3TJOCVMZRH7H")
 	invokeHostFunctionOp := &InvokeHostFunctions{
 		Functions: []xdr.HostFunction{
@@ -82,35 +82,50 @@ func TestInvokeHostFunctionRoundTrip(t *testing.T) {
 				},
 			},
 		},
-		/*Footprint: xdr.LedgerFootprint{
-			ReadOnly: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractData,
-					ContractData: &xdr.LedgerKeyContractData{
-						ContractId: xdr.Hash{1, 2, 3},
-						Key: xdr.ScVal{
-							Type: xdr.ScValTypeScvContractExecutable,
-							Exec: &xdr.ScContractExecutable{
-								Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
-								WasmId: &wasmId,
+		Ext: xdr.TransactionExt{
+			V: 1,
+			SorobanData: &xdr.SorobanTransactionData{
+				Resources: xdr.SorobanResources{
+					Footprint: xdr.LedgerFootprint{
+						ReadOnly: []xdr.LedgerKey{
+							{
+								Type: xdr.LedgerEntryTypeContractData,
+								ContractData: &xdr.LedgerKeyContractData{
+									ContractId: xdr.Hash{1, 2, 3},
+									Key: xdr.ScVal{
+										Type: xdr.ScValTypeScvContractExecutable,
+										Exec: &xdr.ScContractExecutable{
+											Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
+											WasmId: &wasmId,
+										},
+									},
+								},
+							},
+						},
+						ReadWrite: []xdr.LedgerKey{
+							{
+								Type: xdr.LedgerEntryTypeContractData,
+								ContractData: &xdr.LedgerKeyContractData{
+									ContractId: xdr.Hash{1, 2, 3},
+									Key: xdr.ScVal{
+										Type: xdr.ScValTypeScvI64,
+										I64:  &i64,
+									},
+								},
 							},
 						},
 					},
+					Instructions:              0,
+					ReadBytes:                 0,
+					WriteBytes:                0,
+					ExtendedMetaDataSizeBytes: 0,
+				},
+				RefundableFee: 1,
+				Ext: xdr.ExtensionPoint{
+					V: 0,
 				},
 			},
-			ReadWrite: []xdr.LedgerKey{
-				{
-					Type: xdr.LedgerEntryTypeContractData,
-					ContractData: &xdr.LedgerKeyContractData{
-						ContractId: xdr.Hash{1, 2, 3},
-						Key: xdr.ScVal{
-							Type: xdr.ScValTypeScvI64,
-							I64:  &i64,
-						},
-					},
-				},
-			},
-		},*/
+		},
 		SourceAccount: "GB7BDSZU2Y27LYNLALKKALB52WS2IZWYBDGY6EQBLEED3TJOCVMZRH7H",
 	}
 	testOperationsMarshallingRoundtrip(t, []Operation{invokeHostFunctionOp}, false)

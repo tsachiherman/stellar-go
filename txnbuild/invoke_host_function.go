@@ -8,6 +8,7 @@ import (
 type InvokeHostFunctions struct {
 	Functions     []xdr.HostFunction
 	SourceAccount string
+	Ext           xdr.TransactionExt
 }
 
 func (f *InvokeHostFunctions) BuildXDR() (xdr.Operation, error) {
@@ -52,4 +53,8 @@ func (f *InvokeHostFunctions) Validate() error {
 
 func (f *InvokeHostFunctions) GetSourceAccount() string {
 	return f.SourceAccount
+}
+
+func (f *InvokeHostFunctions) BuildTransactionExt() (xdr.TransactionExt, error) {
+	return f.Ext, nil
 }

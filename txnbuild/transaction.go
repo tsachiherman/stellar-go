@@ -785,6 +785,12 @@ func transactionFromParsedXDR(xdrEnv xdr.TransactionEnvelope) (*GenericTransacti
 		if err != nil {
 			return nil, err
 		}
+		// if it's a soroban transaction, and we found a InvokeHostFunctions operation.
+		if xdrEnv.V1 != nil && xdrEnv.V1.Tx.Ext.V != 0 {
+			if invoke, ok := newOp.(*InvokeHostFunctions); ok {
+				invoke.Ext = xdrEnv.V1.Tx.Ext
+			}
+		}
 		newTx.simple.operations = append(newTx.simple.operations, newOp)
 	}
 
@@ -883,6 +889,8 @@ func NewTransaction(params TransactionParams) (*Transaction, error) {
 		envelope.V1.Tx.Memo = xdrMemo
 	}
 
+	var sorobanOp SorobanOperation
+
 	for _, op := range tx.operations {
 		if verr := op.Validate(); verr != nil {
 			return nil, errors.Wrap(verr, fmt.Sprintf("validation failed for %T operation", op))
@@ -892,6 +900,20 @@ func NewTransaction(params TransactionParams) (*Transaction, error) {
 			return nil, errors.Wrap(err2, fmt.Sprintf("failed to build operation %T", op))
 		}
 		envelope.V1.Tx.Operations = append(envelope.V1.Tx.Operations, xdrOperation)
+
+		if scOp, ok := op.(SorobanOperation); ok {
+			// this is a smart contract operation.
+			// smart contract operations are limited to 1 operation / transaction.
+			sorobanOp = scOp
+		}
+	}
+
+	// In case it's a smart contract transaction, we need to include the Ext field within the envelope.
+	if sorobanOp != nil {
+		envelope.V1.Tx.Ext, err = sorobanOp.BuildTransactionExt()
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to build operation %T", sorobanOp))
+		}
 	}
 
 	tx.envelope = envelope

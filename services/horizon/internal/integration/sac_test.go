@@ -1162,8 +1162,23 @@ func addFootprint(itest *integration.Test, invokeHostFn *txnbuild.InvokeHostFunc
 	)
 	require.NoError(itest.CurrentTest(), err)
 	require.Equal(itest.CurrentTest(), stellarcore.PreflightStatusOk, response.Status, response.Detail)
-	//err = xdr.SafeUnmarshalBase64(response.Footprint, &invokeHostFn.Footprint)
-	//require.NoError(itest.CurrentTest(), err)
+	invokeHostFn.Ext = xdr.TransactionExt{
+		V: 1,
+		SorobanData: &xdr.SorobanTransactionData{
+			Resources: xdr.SorobanResources{
+				Instructions:              0,
+				ReadBytes:                 0,
+				WriteBytes:                0,
+				ExtendedMetaDataSizeBytes: 0,
+			},
+			RefundableFee: 1,
+			Ext: xdr.ExtensionPoint{
+				V: 0,
+			},
+		},
+	}
+	err = xdr.SafeUnmarshalBase64(response.Footprint, &invokeHostFn.Ext.SorobanData.Resources.Footprint)
+	require.NoError(itest.CurrentTest(), err)
 	return invokeHostFn
 }
 
@@ -1212,7 +1227,7 @@ func addAuthNextInvokerFlow(fnName string, contractId xdr.Hash, args xdr.ScVec) 
 func mustCreateAndInstallContract(itest *integration.Test, signer *keypair.Full, contractSalt string, wasmFileName string) xdr.Hash {
 	installContractOp := assembleInstallContractCodeOp(itest.CurrentTest(), itest.Master().Address(), wasmFileName)
 	assertInvokeHostFnSucceeds(itest, signer, installContractOp)
-	createContractOp, createContractFootPrint := assembleCreateContractOp(itest.CurrentTest(), itest.Master().Address(), wasmFileName, contractSalt, itest.GetPassPhrase())
+	createContractOp := assembleCreateContractOp(itest.CurrentTest(), itest.Master().Address(), wasmFileName, contractSalt, itest.GetPassPhrase())
 	assertInvokeHostFnSucceeds(itest, signer, createContractOp)
-	return createContractFootPrint.ReadWrite[0].MustContractData().ContractId
+	return createContractOp.Ext.SorobanData.Resources.Footprint.ReadWrite[0].MustContractData().ContractId
 }

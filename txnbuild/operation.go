@@ -92,3 +92,8 @@ func accountFromXDR(account *xdr.MuxedAccount) string {
 	}
 	return ""
 }
+
+// SorobanOperation represents a smart contract operation on the Stellar network.
+type SorobanOperation interface {
+	BuildTransactionExt() (xdr.TransactionExt, error)
+}
