@@ -882,7 +882,8 @@ func NewTransaction(params TransactionParams) (*Transaction, error) {
 
 	// Handle the memo, if one is present
 	if tx.memo != nil {
-		xdrMemo, err := tx.memo.ToXDR()
+		var xdrMemo xdr.Memo
+		xdrMemo, err = tx.memo.ToXDR()
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't build memo XDR")
 		}
