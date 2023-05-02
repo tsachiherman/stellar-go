@@ -513,7 +513,7 @@ case CONTRACT_ID_FROM_ASSET:
 struct CreateContractArgs
 {
     ContractID contractID;
-    SCContractExecutable source;
+    SCContractExecutable executable;
 };
 
 union HostFunctionArgs switch (HostFunctionType type)
@@ -678,7 +678,7 @@ case ENVELOPE_TYPE_CREATE_CONTRACT_ARGS:
     struct
     {
         Hash networkID;
-        SCContractExecutable source;
+        SCContractExecutable executable;
         uint256 salt;
     } createContractArgs;
 case ENVELOPE_TYPE_CONTRACT_AUTH:
@@ -1772,15 +1772,17 @@ enum InvokeHostFunctionResultCode
 
     // codes considered as "failure" for the operation
     INVOKE_HOST_FUNCTION_MALFORMED = -1,
-    INVOKE_HOST_FUNCTION_TRAPPED = -2
+    INVOKE_HOST_FUNCTION_TRAPPED = -2,
+    INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED = -3
 };
 
 union InvokeHostFunctionResult switch (InvokeHostFunctionResultCode code)
 {
 case INVOKE_HOST_FUNCTION_SUCCESS:
-    SCVal success;
+    SCVal success<MAX_OPS_PER_TX>;
 case INVOKE_HOST_FUNCTION_MALFORMED:
 case INVOKE_HOST_FUNCTION_TRAPPED:
+case INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED:
     void;
 };
 
@@ -1920,6 +1922,7 @@ struct InnerTransactionResult
     case txBAD_SPONSORSHIP:
     case txBAD_MIN_SEQ_AGE_OR_GAP:
     case txMALFORMED:
+    case txSOROBAN_RESOURCE_LIMIT_EXCEEDED:
         void;
     }
     result;
@@ -1966,6 +1969,7 @@ struct TransactionResult
     case txBAD_SPONSORSHIP:
     case txBAD_MIN_SEQ_AGE_OR_GAP:
     case txMALFORMED:
+    case txSOROBAN_RESOURCE_LIMIT_EXCEEDED:
         void;
     }
     result;

@@ -682,7 +682,7 @@ func (operation *transactionOperationWrapper) Details() (map[string]interface{},
 				default:
 					panic(fmt.Errorf("Unknown contract id type: %s", args.ContractId.Type))
 				}
-				details["source"] = args.Source
+				details["source"] = args.Executable
 			case xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm:
 				args := function.Args.MustUploadContractWasm()
 				details["code"] = base64.StdEncoding.EncodeToString(args.Code)

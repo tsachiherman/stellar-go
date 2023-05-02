@@ -322,7 +322,7 @@ func (s *OperationsProcessorTestSuiteLedger) TestInvokeFunctionDetails() {
 												Salt:      salt,
 											},
 										},
-										Source: xdr.ScContractExecutable{
+										Executable: xdr.ScContractExecutable{
 											Type: xdr.ScContractExecutableTypeSccontractExecutableToken,
 										},
 									},

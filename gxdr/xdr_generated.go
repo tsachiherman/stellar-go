@@ -2099,7 +2099,7 @@ type XdrAnon_ContractID_FromEd25519PublicKey struct {
 
 type CreateContractArgs struct {
 	ContractID ContractID
-	Source     SCContractExecutable
+	Executable SCContractExecutable
 }
 
 type HostFunctionArgs struct {
@@ -2267,9 +2267,9 @@ type XdrAnon_HashIDPreimage_SourceAccountContractID struct {
 	Salt          Uint256
 }
 type XdrAnon_HashIDPreimage_CreateContractArgs struct {
-	NetworkID Hash
-	Source    SCContractExecutable
-	Salt      Uint256
+	NetworkID  Hash
+	Executable SCContractExecutable
+	Salt       Uint256
 }
 type XdrAnon_HashIDPreimage_ContractAuth struct {
 	NetworkID  Hash
@@ -3284,15 +3284,16 @@ const (
 	// codes considered as "success" for the operation
 	INVOKE_HOST_FUNCTION_SUCCESS InvokeHostFunctionResultCode = 0
 	// codes considered as "failure" for the operation
-	INVOKE_HOST_FUNCTION_MALFORMED InvokeHostFunctionResultCode = -1
-	INVOKE_HOST_FUNCTION_TRAPPED   InvokeHostFunctionResultCode = -2
+	INVOKE_HOST_FUNCTION_MALFORMED               InvokeHostFunctionResultCode = -1
+	INVOKE_HOST_FUNCTION_TRAPPED                 InvokeHostFunctionResultCode = -2
+	INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED InvokeHostFunctionResultCode = -3
 )
 
 type InvokeHostFunctionResult struct {
 	// The union discriminant Code selects among the following arms:
 	//   INVOKE_HOST_FUNCTION_SUCCESS:
-	//      Success() *SCVal
-	//   INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED:
+	//      Success() *[]SCVal // bound MAX_OPS_PER_TX
+	//   INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED, INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED:
 	//      void
 	Code InvokeHostFunctionResultCode
 	_u   interface{}
@@ -3438,7 +3439,7 @@ type XdrAnon_InnerTransactionResult_Result struct {
 	// The union discriminant Code selects among the following arms:
 	//   TxSUCCESS, TxFAILED:
 	//      Results() *[]OperationResult
-	//   TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	//   TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 	//      void
 	Code TransactionResultCode
 	_u   interface{}
@@ -3472,7 +3473,7 @@ type XdrAnon_TransactionResult_Result struct {
 	//      InnerResultPair() *InnerTransactionResultPair
 	//   TxSUCCESS, TxFAILED:
 	//      Results() *[]OperationResult
-	//   TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	//   TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 	//      void
 	Code TransactionResultCode
 	_u   interface{}
@@ -4177,11 +4178,9 @@ type ConfigSettingContractComputeV0 struct {
 	TxMaxInstructions Int64
 	// Cost of 10000 instructions
 	FeeRatePerInstructionsIncrement Int64
-	// Memory limit per contract/host function invocation. Unlike
-	// instructions, there is no fee for memory and it's not
-	// accumulated between operations - the same limit is applied
-	// to every operation.
-	MemoryLimit Uint32
+	// Memory limit per transaction. Unlike instructions, there is no fee
+	// for memory, just the limit.
+	TxMemoryLimit Uint32
 }
 
 // Ledger access settings for contracts.
@@ -4295,13 +4294,13 @@ const (
 )
 
 type ContractCostParamEntry struct {
-	ConstTerm  Int32
-	LinearTerm Int32
+	ConstTerm  Int64
+	LinearTerm Int64
 	// use `ext` to add more terms (e.g. higher order polynomials) in the future
 	Ext ExtensionPoint
 }
 
-// limits the ContractCostParams size to 12kB
+// limits the ContractCostParams size to 20kB
 const CONTRACT_COST_COUNT_LIMIT = 1024
 
 type ContractCostParams = []ContractCostParamEntry // bound CONTRACT_COST_COUNT_LIMIT
@@ -4316,9 +4315,10 @@ const (
 	CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0           ConfigSettingID = 3
 	CONFIG_SETTING_CONTRACT_META_DATA_V0                 ConfigSettingID = 4
 	CONFIG_SETTING_CONTRACT_BANDWIDTH_V0                 ConfigSettingID = 5
-	CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION           ConfigSettingID = 6
-	CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS ConfigSettingID = 7
-	CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES     ConfigSettingID = 8
+	CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS ConfigSettingID = 6
+	CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES     ConfigSettingID = 7
+	CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES          ConfigSettingID = 8
+	CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES        ConfigSettingID = 9
 )
 
 type ConfigSettingEntry struct {
@@ -4335,12 +4335,14 @@ type ConfigSettingEntry struct {
 	//      ContractMetaData() *ConfigSettingContractMetaDataV0
 	//   CONFIG_SETTING_CONTRACT_BANDWIDTH_V0:
 	//      ContractBandwidth() *ConfigSettingContractBandwidthV0
-	//   CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION:
-	//      ContractHostLogicVersion() *Uint32
 	//   CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS:
 	//      ContractCostParamsCpuInsns() *ContractCostParams
 	//   CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES:
 	//      ContractCostParamsMemBytes() *ContractCostParams
+	//   CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES:
+	//      ContractDataKeySizeBytes() *Uint32
+	//   CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES:
+	//      ContractDataEntrySizeBytes() *Uint32
 	ConfigSettingID ConfigSettingID
 	_u              interface{}
 }
@@ -15626,7 +15628,7 @@ func (v *CreateContractArgs) XdrRecurse(x XDR, name string) {
 		name = x.Sprintf("%s.", name)
 	}
 	x.Marshal(x.Sprintf("%scontractID", name), XDR_ContractID(&v.ContractID))
-	x.Marshal(x.Sprintf("%ssource", name), XDR_SCContractExecutable(&v.Source))
+	x.Marshal(x.Sprintf("%sexecutable", name), XDR_SCContractExecutable(&v.Executable))
 }
 func XDR_CreateContractArgs(v *CreateContractArgs) *CreateContractArgs { return v }
 
@@ -16885,7 +16887,7 @@ func (v *XdrAnon_HashIDPreimage_CreateContractArgs) XdrRecurse(x XDR, name strin
 		name = x.Sprintf("%s.", name)
 	}
 	x.Marshal(x.Sprintf("%snetworkID", name), XDR_Hash(&v.NetworkID))
-	x.Marshal(x.Sprintf("%ssource", name), XDR_SCContractExecutable(&v.Source))
+	x.Marshal(x.Sprintf("%sexecutable", name), XDR_SCContractExecutable(&v.Executable))
 	x.Marshal(x.Sprintf("%ssalt", name), XDR_Uint256(&v.Salt))
 }
 func XDR_XdrAnon_HashIDPreimage_CreateContractArgs(v *XdrAnon_HashIDPreimage_CreateContractArgs) *XdrAnon_HashIDPreimage_CreateContractArgs {
@@ -22527,14 +22529,16 @@ func XDR_LiquidityPoolWithdrawResult(v *LiquidityPoolWithdrawResult) *LiquidityP
 }
 
 var _XdrNames_InvokeHostFunctionResultCode = map[int32]string{
-	int32(INVOKE_HOST_FUNCTION_SUCCESS):   "INVOKE_HOST_FUNCTION_SUCCESS",
-	int32(INVOKE_HOST_FUNCTION_MALFORMED): "INVOKE_HOST_FUNCTION_MALFORMED",
-	int32(INVOKE_HOST_FUNCTION_TRAPPED):   "INVOKE_HOST_FUNCTION_TRAPPED",
+	int32(INVOKE_HOST_FUNCTION_SUCCESS):                 "INVOKE_HOST_FUNCTION_SUCCESS",
+	int32(INVOKE_HOST_FUNCTION_MALFORMED):               "INVOKE_HOST_FUNCTION_MALFORMED",
+	int32(INVOKE_HOST_FUNCTION_TRAPPED):                 "INVOKE_HOST_FUNCTION_TRAPPED",
+	int32(INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED): "INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED",
 }
 var _XdrValues_InvokeHostFunctionResultCode = map[string]int32{
-	"INVOKE_HOST_FUNCTION_SUCCESS":   int32(INVOKE_HOST_FUNCTION_SUCCESS),
-	"INVOKE_HOST_FUNCTION_MALFORMED": int32(INVOKE_HOST_FUNCTION_MALFORMED),
-	"INVOKE_HOST_FUNCTION_TRAPPED":   int32(INVOKE_HOST_FUNCTION_TRAPPED),
+	"INVOKE_HOST_FUNCTION_SUCCESS":                 int32(INVOKE_HOST_FUNCTION_SUCCESS),
+	"INVOKE_HOST_FUNCTION_MALFORMED":               int32(INVOKE_HOST_FUNCTION_MALFORMED),
+	"INVOKE_HOST_FUNCTION_TRAPPED":                 int32(INVOKE_HOST_FUNCTION_TRAPPED),
+	"INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED": int32(INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED),
 }
 
 func (InvokeHostFunctionResultCode) XdrEnumNames() map[int32]string {
@@ -22584,22 +22588,80 @@ func (e InvokeHostFunctionResultCode) XdrEnumComments() map[int32]string {
 	return _XdrComments_InvokeHostFunctionResultCode
 }
 
+type _XdrVec_100_SCVal []SCVal
+
+func (_XdrVec_100_SCVal) XdrBound() uint32 {
+	const bound uint32 = 100 // Force error if not const or doesn't fit
+	return bound
+}
+func (_XdrVec_100_SCVal) XdrCheckLen(length uint32) {
+	if length > uint32(100) {
+		XdrPanic("_XdrVec_100_SCVal length %d exceeds bound 100", length)
+	} else if int(length) < 0 {
+		XdrPanic("_XdrVec_100_SCVal length %d exceeds max int", length)
+	}
+}
+func (v _XdrVec_100_SCVal) GetVecLen() uint32 { return uint32(len(v)) }
+func (v *_XdrVec_100_SCVal) SetVecLen(length uint32) {
+	v.XdrCheckLen(length)
+	if int(length) <= cap(*v) {
+		if int(length) != len(*v) {
+			*v = (*v)[:int(length)]
+		}
+		return
+	}
+	newcap := 2 * cap(*v)
+	if newcap < int(length) { // also catches overflow where 2*cap < 0
+		newcap = int(length)
+	} else if bound := uint(100); uint(newcap) > bound {
+		if int(bound) < 0 {
+			bound = ^uint(0) >> 1
+		}
+		newcap = int(bound)
+	}
+	nv := make([]SCVal, int(length), newcap)
+	copy(nv, *v)
+	*v = nv
+}
+func (v *_XdrVec_100_SCVal) XdrMarshalN(x XDR, name string, n uint32) {
+	v.XdrCheckLen(n)
+	for i := 0; i < int(n); i++ {
+		if i >= len(*v) {
+			v.SetVecLen(uint32(i + 1))
+		}
+		XDR_SCVal(&(*v)[i]).XdrMarshal(x, x.Sprintf("%s[%d]", name, i))
+	}
+	if int(n) < len(*v) {
+		*v = (*v)[:int(n)]
+	}
+}
+func (v *_XdrVec_100_SCVal) XdrRecurse(x XDR, name string) {
+	size := XdrSize{Size: uint32(len(*v)), Bound: 100}
+	x.Marshal(name, &size)
+	v.XdrMarshalN(x, name, size.Size)
+}
+func (_XdrVec_100_SCVal) XdrTypeName() string              { return "SCVal<>" }
+func (v *_XdrVec_100_SCVal) XdrPointer() interface{}       { return (*[]SCVal)(v) }
+func (v _XdrVec_100_SCVal) XdrValue() interface{}          { return ([]SCVal)(v) }
+func (v *_XdrVec_100_SCVal) XdrMarshal(x XDR, name string) { x.Marshal(name, v) }
+
 var _XdrTags_InvokeHostFunctionResult = map[int32]bool{
-	XdrToI32(INVOKE_HOST_FUNCTION_SUCCESS):   true,
-	XdrToI32(INVOKE_HOST_FUNCTION_MALFORMED): true,
-	XdrToI32(INVOKE_HOST_FUNCTION_TRAPPED):   true,
+	XdrToI32(INVOKE_HOST_FUNCTION_SUCCESS):                 true,
+	XdrToI32(INVOKE_HOST_FUNCTION_MALFORMED):               true,
+	XdrToI32(INVOKE_HOST_FUNCTION_TRAPPED):                 true,
+	XdrToI32(INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED): true,
 }
 
 func (_ InvokeHostFunctionResult) XdrValidTags() map[int32]bool {
 	return _XdrTags_InvokeHostFunctionResult
 }
-func (u *InvokeHostFunctionResult) Success() *SCVal {
+func (u *InvokeHostFunctionResult) Success() *[]SCVal {
 	switch u.Code {
 	case INVOKE_HOST_FUNCTION_SUCCESS:
-		if v, ok := u._u.(*SCVal); ok {
+		if v, ok := u._u.(*[]SCVal); ok {
 			return v
 		} else {
-			var zero SCVal
+			var zero []SCVal
 			u._u = &zero
 			return &zero
 		}
@@ -22610,7 +22672,7 @@ func (u *InvokeHostFunctionResult) Success() *SCVal {
 }
 func (u InvokeHostFunctionResult) XdrValid() bool {
 	switch u.Code {
-	case INVOKE_HOST_FUNCTION_SUCCESS, INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED:
+	case INVOKE_HOST_FUNCTION_SUCCESS, INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED, INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED:
 		return true
 	}
 	return false
@@ -22624,8 +22686,8 @@ func (u *InvokeHostFunctionResult) XdrUnionTagName() string {
 func (u *InvokeHostFunctionResult) XdrUnionBody() XdrType {
 	switch u.Code {
 	case INVOKE_HOST_FUNCTION_SUCCESS:
-		return XDR_SCVal(u.Success())
-	case INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED:
+		return (*_XdrVec_100_SCVal)(u.Success())
+	case INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED, INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED:
 		return nil
 	}
 	return nil
@@ -22634,7 +22696,7 @@ func (u *InvokeHostFunctionResult) XdrUnionBodyName() string {
 	switch u.Code {
 	case INVOKE_HOST_FUNCTION_SUCCESS:
 		return "Success"
-	case INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED:
+	case INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED, INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED:
 		return ""
 	}
 	return ""
@@ -22653,9 +22715,9 @@ func (u *InvokeHostFunctionResult) XdrRecurse(x XDR, name string) {
 	XDR_InvokeHostFunctionResultCode(&u.Code).XdrMarshal(x, x.Sprintf("%scode", name))
 	switch u.Code {
 	case INVOKE_HOST_FUNCTION_SUCCESS:
-		x.Marshal(x.Sprintf("%ssuccess", name), XDR_SCVal(u.Success()))
+		x.Marshal(x.Sprintf("%ssuccess", name), (*_XdrVec_100_SCVal)(u.Success()))
 		return
-	case INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED:
+	case INVOKE_HOST_FUNCTION_MALFORMED, INVOKE_HOST_FUNCTION_TRAPPED, INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED:
 		return
 	}
 	XdrPanic("invalid Code (%v) in InvokeHostFunctionResult", u.Code)
@@ -23600,22 +23662,23 @@ func (v _XdrVec_unbounded_OperationResult) XdrValue() interface{}          { ret
 func (v *_XdrVec_unbounded_OperationResult) XdrMarshal(x XDR, name string) { x.Marshal(name, v) }
 
 var _XdrTags_XdrAnon_InnerTransactionResult_Result = map[int32]bool{
-	XdrToI32(TxSUCCESS):                true,
-	XdrToI32(TxFAILED):                 true,
-	XdrToI32(TxTOO_EARLY):              true,
-	XdrToI32(TxTOO_LATE):               true,
-	XdrToI32(TxMISSING_OPERATION):      true,
-	XdrToI32(TxBAD_SEQ):                true,
-	XdrToI32(TxBAD_AUTH):               true,
-	XdrToI32(TxINSUFFICIENT_BALANCE):   true,
-	XdrToI32(TxNO_ACCOUNT):             true,
-	XdrToI32(TxINSUFFICIENT_FEE):       true,
-	XdrToI32(TxBAD_AUTH_EXTRA):         true,
-	XdrToI32(TxINTERNAL_ERROR):         true,
-	XdrToI32(TxNOT_SUPPORTED):          true,
-	XdrToI32(TxBAD_SPONSORSHIP):        true,
-	XdrToI32(TxBAD_MIN_SEQ_AGE_OR_GAP): true,
-	XdrToI32(TxMALFORMED):              true,
+	XdrToI32(TxSUCCESS):                         true,
+	XdrToI32(TxFAILED):                          true,
+	XdrToI32(TxTOO_EARLY):                       true,
+	XdrToI32(TxTOO_LATE):                        true,
+	XdrToI32(TxMISSING_OPERATION):               true,
+	XdrToI32(TxBAD_SEQ):                         true,
+	XdrToI32(TxBAD_AUTH):                        true,
+	XdrToI32(TxINSUFFICIENT_BALANCE):            true,
+	XdrToI32(TxNO_ACCOUNT):                      true,
+	XdrToI32(TxINSUFFICIENT_FEE):                true,
+	XdrToI32(TxBAD_AUTH_EXTRA):                  true,
+	XdrToI32(TxINTERNAL_ERROR):                  true,
+	XdrToI32(TxNOT_SUPPORTED):                   true,
+	XdrToI32(TxBAD_SPONSORSHIP):                 true,
+	XdrToI32(TxBAD_MIN_SEQ_AGE_OR_GAP):          true,
+	XdrToI32(TxMALFORMED):                       true,
+	XdrToI32(TxSOROBAN_RESOURCE_LIMIT_EXCEEDED): true,
 }
 
 func (_ XdrAnon_InnerTransactionResult_Result) XdrValidTags() map[int32]bool {
@@ -23638,7 +23701,7 @@ func (u *XdrAnon_InnerTransactionResult_Result) Results() *[]OperationResult {
 }
 func (u XdrAnon_InnerTransactionResult_Result) XdrValid() bool {
 	switch u.Code {
-	case TxSUCCESS, TxFAILED, TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxSUCCESS, TxFAILED, TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return true
 	}
 	return false
@@ -23653,7 +23716,7 @@ func (u *XdrAnon_InnerTransactionResult_Result) XdrUnionBody() XdrType {
 	switch u.Code {
 	case TxSUCCESS, TxFAILED:
 		return (*_XdrVec_unbounded_OperationResult)(u.Results())
-	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return nil
 	}
 	return nil
@@ -23662,7 +23725,7 @@ func (u *XdrAnon_InnerTransactionResult_Result) XdrUnionBodyName() string {
 	switch u.Code {
 	case TxSUCCESS, TxFAILED:
 		return "Results"
-	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return ""
 	}
 	return ""
@@ -23685,7 +23748,7 @@ func (u *XdrAnon_InnerTransactionResult_Result) XdrRecurse(x XDR, name string) {
 	case TxSUCCESS, TxFAILED:
 		x.Marshal(x.Sprintf("%sresults", name), (*_XdrVec_unbounded_OperationResult)(u.Results()))
 		return
-	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return
 	}
 	XdrPanic("invalid Code (%v) in XdrAnon_InnerTransactionResult_Result", u.Code)
@@ -23786,24 +23849,25 @@ func XDR_InnerTransactionResultPair(v *InnerTransactionResultPair) *InnerTransac
 }
 
 var _XdrTags_XdrAnon_TransactionResult_Result = map[int32]bool{
-	XdrToI32(TxFEE_BUMP_INNER_SUCCESS): true,
-	XdrToI32(TxFEE_BUMP_INNER_FAILED):  true,
-	XdrToI32(TxSUCCESS):                true,
-	XdrToI32(TxFAILED):                 true,
-	XdrToI32(TxTOO_EARLY):              true,
-	XdrToI32(TxTOO_LATE):               true,
-	XdrToI32(TxMISSING_OPERATION):      true,
-	XdrToI32(TxBAD_SEQ):                true,
-	XdrToI32(TxBAD_AUTH):               true,
-	XdrToI32(TxINSUFFICIENT_BALANCE):   true,
-	XdrToI32(TxNO_ACCOUNT):             true,
-	XdrToI32(TxINSUFFICIENT_FEE):       true,
-	XdrToI32(TxBAD_AUTH_EXTRA):         true,
-	XdrToI32(TxINTERNAL_ERROR):         true,
-	XdrToI32(TxNOT_SUPPORTED):          true,
-	XdrToI32(TxBAD_SPONSORSHIP):        true,
-	XdrToI32(TxBAD_MIN_SEQ_AGE_OR_GAP): true,
-	XdrToI32(TxMALFORMED):              true,
+	XdrToI32(TxFEE_BUMP_INNER_SUCCESS):          true,
+	XdrToI32(TxFEE_BUMP_INNER_FAILED):           true,
+	XdrToI32(TxSUCCESS):                         true,
+	XdrToI32(TxFAILED):                          true,
+	XdrToI32(TxTOO_EARLY):                       true,
+	XdrToI32(TxTOO_LATE):                        true,
+	XdrToI32(TxMISSING_OPERATION):               true,
+	XdrToI32(TxBAD_SEQ):                         true,
+	XdrToI32(TxBAD_AUTH):                        true,
+	XdrToI32(TxINSUFFICIENT_BALANCE):            true,
+	XdrToI32(TxNO_ACCOUNT):                      true,
+	XdrToI32(TxINSUFFICIENT_FEE):                true,
+	XdrToI32(TxBAD_AUTH_EXTRA):                  true,
+	XdrToI32(TxINTERNAL_ERROR):                  true,
+	XdrToI32(TxNOT_SUPPORTED):                   true,
+	XdrToI32(TxBAD_SPONSORSHIP):                 true,
+	XdrToI32(TxBAD_MIN_SEQ_AGE_OR_GAP):          true,
+	XdrToI32(TxMALFORMED):                       true,
+	XdrToI32(TxSOROBAN_RESOURCE_LIMIT_EXCEEDED): true,
 }
 
 func (_ XdrAnon_TransactionResult_Result) XdrValidTags() map[int32]bool {
@@ -23841,7 +23905,7 @@ func (u *XdrAnon_TransactionResult_Result) Results() *[]OperationResult {
 }
 func (u XdrAnon_TransactionResult_Result) XdrValid() bool {
 	switch u.Code {
-	case TxFEE_BUMP_INNER_SUCCESS, TxFEE_BUMP_INNER_FAILED, TxSUCCESS, TxFAILED, TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxFEE_BUMP_INNER_SUCCESS, TxFEE_BUMP_INNER_FAILED, TxSUCCESS, TxFAILED, TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return true
 	}
 	return false
@@ -23858,7 +23922,7 @@ func (u *XdrAnon_TransactionResult_Result) XdrUnionBody() XdrType {
 		return XDR_InnerTransactionResultPair(u.InnerResultPair())
 	case TxSUCCESS, TxFAILED:
 		return (*_XdrVec_unbounded_OperationResult)(u.Results())
-	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return nil
 	}
 	return nil
@@ -23869,7 +23933,7 @@ func (u *XdrAnon_TransactionResult_Result) XdrUnionBodyName() string {
 		return "InnerResultPair"
 	case TxSUCCESS, TxFAILED:
 		return "Results"
-	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return ""
 	}
 	return ""
@@ -23895,7 +23959,7 @@ func (u *XdrAnon_TransactionResult_Result) XdrRecurse(x XDR, name string) {
 	case TxSUCCESS, TxFAILED:
 		x.Marshal(x.Sprintf("%sresults", name), (*_XdrVec_unbounded_OperationResult)(u.Results()))
 		return
-	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED:
+	case TxTOO_EARLY, TxTOO_LATE, TxMISSING_OPERATION, TxBAD_SEQ, TxBAD_AUTH, TxINSUFFICIENT_BALANCE, TxNO_ACCOUNT, TxINSUFFICIENT_FEE, TxBAD_AUTH_EXTRA, TxINTERNAL_ERROR, TxNOT_SUPPORTED, TxBAD_SPONSORSHIP, TxBAD_MIN_SEQ_AGE_OR_GAP, TxMALFORMED, TxSOROBAN_RESOURCE_LIMIT_EXCEEDED:
 		return
 	}
 	XdrPanic("invalid Code (%v) in XdrAnon_TransactionResult_Result", u.Code)
@@ -28472,7 +28536,7 @@ func (v *ConfigSettingContractComputeV0) XdrRecurse(x XDR, name string) {
 	x.Marshal(x.Sprintf("%sledgerMaxInstructions", name), XDR_Int64(&v.LedgerMaxInstructions))
 	x.Marshal(x.Sprintf("%stxMaxInstructions", name), XDR_Int64(&v.TxMaxInstructions))
 	x.Marshal(x.Sprintf("%sfeeRatePerInstructionsIncrement", name), XDR_Int64(&v.FeeRatePerInstructionsIncrement))
-	x.Marshal(x.Sprintf("%smemoryLimit", name), XDR_Uint32(&v.MemoryLimit))
+	x.Marshal(x.Sprintf("%stxMemoryLimit", name), XDR_Uint32(&v.TxMemoryLimit))
 }
 func XDR_ConfigSettingContractComputeV0(v *ConfigSettingContractComputeV0) *ConfigSettingContractComputeV0 {
 	return v
@@ -28687,8 +28751,8 @@ func (v *ContractCostParamEntry) XdrRecurse(x XDR, name string) {
 	if name != "" {
 		name = x.Sprintf("%s.", name)
 	}
-	x.Marshal(x.Sprintf("%sconstTerm", name), XDR_Int32(&v.ConstTerm))
-	x.Marshal(x.Sprintf("%slinearTerm", name), XDR_Int32(&v.LinearTerm))
+	x.Marshal(x.Sprintf("%sconstTerm", name), XDR_Int64(&v.ConstTerm))
+	x.Marshal(x.Sprintf("%slinearTerm", name), XDR_Int64(&v.LinearTerm))
 	x.Marshal(x.Sprintf("%sext", name), XDR_ExtensionPoint(&v.Ext))
 }
 func XDR_ContractCostParamEntry(v *ContractCostParamEntry) *ContractCostParamEntry { return v }
@@ -28771,9 +28835,10 @@ var _XdrNames_ConfigSettingID = map[int32]string{
 	int32(CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0):           "CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0",
 	int32(CONFIG_SETTING_CONTRACT_META_DATA_V0):                 "CONFIG_SETTING_CONTRACT_META_DATA_V0",
 	int32(CONFIG_SETTING_CONTRACT_BANDWIDTH_V0):                 "CONFIG_SETTING_CONTRACT_BANDWIDTH_V0",
-	int32(CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION):           "CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION",
 	int32(CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS): "CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS",
 	int32(CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES):     "CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES",
+	int32(CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES):          "CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES",
+	int32(CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES):        "CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES",
 }
 var _XdrValues_ConfigSettingID = map[string]int32{
 	"CONFIG_SETTING_CONTRACT_MAX_SIZE_BYTES":               int32(CONFIG_SETTING_CONTRACT_MAX_SIZE_BYTES),
@@ -28782,9 +28847,10 @@ var _XdrValues_ConfigSettingID = map[string]int32{
 	"CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0":           int32(CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0),
 	"CONFIG_SETTING_CONTRACT_META_DATA_V0":                 int32(CONFIG_SETTING_CONTRACT_META_DATA_V0),
 	"CONFIG_SETTING_CONTRACT_BANDWIDTH_V0":                 int32(CONFIG_SETTING_CONTRACT_BANDWIDTH_V0),
-	"CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION":           int32(CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION),
 	"CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS": int32(CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS),
 	"CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES":     int32(CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES),
+	"CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES":          int32(CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES),
+	"CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES":        int32(CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES),
 }
 
 func (ConfigSettingID) XdrEnumNames() map[int32]string {
@@ -28830,9 +28896,10 @@ var _XdrTags_ConfigSettingEntry = map[int32]bool{
 	XdrToI32(CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0):           true,
 	XdrToI32(CONFIG_SETTING_CONTRACT_META_DATA_V0):                 true,
 	XdrToI32(CONFIG_SETTING_CONTRACT_BANDWIDTH_V0):                 true,
-	XdrToI32(CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION):           true,
 	XdrToI32(CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS): true,
 	XdrToI32(CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES):     true,
+	XdrToI32(CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES):          true,
+	XdrToI32(CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES):        true,
 }
 
 func (_ ConfigSettingEntry) XdrValidTags() map[int32]bool {
@@ -28928,21 +28995,6 @@ func (u *ConfigSettingEntry) ContractBandwidth() *ConfigSettingContractBandwidth
 		return nil
 	}
 }
-func (u *ConfigSettingEntry) ContractHostLogicVersion() *Uint32 {
-	switch u.ConfigSettingID {
-	case CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION:
-		if v, ok := u._u.(*Uint32); ok {
-			return v
-		} else {
-			var zero Uint32
-			u._u = &zero
-			return &zero
-		}
-	default:
-		XdrPanic("ConfigSettingEntry.ContractHostLogicVersion accessed when ConfigSettingID == %v", u.ConfigSettingID)
-		return nil
-	}
-}
 func (u *ConfigSettingEntry) ContractCostParamsCpuInsns() *ContractCostParams {
 	switch u.ConfigSettingID {
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS:
@@ -28973,9 +29025,39 @@ func (u *ConfigSettingEntry) ContractCostParamsMemBytes() *ContractCostParams {
 		return nil
 	}
 }
+func (u *ConfigSettingEntry) ContractDataKeySizeBytes() *Uint32 {
+	switch u.ConfigSettingID {
+	case CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES:
+		if v, ok := u._u.(*Uint32); ok {
+			return v
+		} else {
+			var zero Uint32
+			u._u = &zero
+			return &zero
+		}
+	default:
+		XdrPanic("ConfigSettingEntry.ContractDataKeySizeBytes accessed when ConfigSettingID == %v", u.ConfigSettingID)
+		return nil
+	}
+}
+func (u *ConfigSettingEntry) ContractDataEntrySizeBytes() *Uint32 {
+	switch u.ConfigSettingID {
+	case CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES:
+		if v, ok := u._u.(*Uint32); ok {
+			return v
+		} else {
+			var zero Uint32
+			u._u = &zero
+			return &zero
+		}
+	default:
+		XdrPanic("ConfigSettingEntry.ContractDataEntrySizeBytes accessed when ConfigSettingID == %v", u.ConfigSettingID)
+		return nil
+	}
+}
 func (u ConfigSettingEntry) XdrValid() bool {
 	switch u.ConfigSettingID {
-	case CONFIG_SETTING_CONTRACT_MAX_SIZE_BYTES, CONFIG_SETTING_CONTRACT_COMPUTE_V0, CONFIG_SETTING_CONTRACT_LEDGER_COST_V0, CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0, CONFIG_SETTING_CONTRACT_META_DATA_V0, CONFIG_SETTING_CONTRACT_BANDWIDTH_V0, CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION, CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS, CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES:
+	case CONFIG_SETTING_CONTRACT_MAX_SIZE_BYTES, CONFIG_SETTING_CONTRACT_COMPUTE_V0, CONFIG_SETTING_CONTRACT_LEDGER_COST_V0, CONFIG_SETTING_CONTRACT_HISTORICAL_DATA_V0, CONFIG_SETTING_CONTRACT_META_DATA_V0, CONFIG_SETTING_CONTRACT_BANDWIDTH_V0, CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS, CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES, CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES, CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES:
 		return true
 	}
 	return false
@@ -29000,12 +29082,14 @@ func (u *ConfigSettingEntry) XdrUnionBody() XdrType {
 		return XDR_ConfigSettingContractMetaDataV0(u.ContractMetaData())
 	case CONFIG_SETTING_CONTRACT_BANDWIDTH_V0:
 		return XDR_ConfigSettingContractBandwidthV0(u.ContractBandwidth())
-	case CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION:
-		return XDR_Uint32(u.ContractHostLogicVersion())
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS:
 		return XDR_ContractCostParams(u.ContractCostParamsCpuInsns())
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES:
 		return XDR_ContractCostParams(u.ContractCostParamsMemBytes())
+	case CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES:
+		return XDR_Uint32(u.ContractDataKeySizeBytes())
+	case CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES:
+		return XDR_Uint32(u.ContractDataEntrySizeBytes())
 	}
 	return nil
 }
@@ -29023,12 +29107,14 @@ func (u *ConfigSettingEntry) XdrUnionBodyName() string {
 		return "ContractMetaData"
 	case CONFIG_SETTING_CONTRACT_BANDWIDTH_V0:
 		return "ContractBandwidth"
-	case CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION:
-		return "ContractHostLogicVersion"
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS:
 		return "ContractCostParamsCpuInsns"
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES:
 		return "ContractCostParamsMemBytes"
+	case CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES:
+		return "ContractDataKeySizeBytes"
+	case CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES:
+		return "ContractDataEntrySizeBytes"
 	}
 	return ""
 }
@@ -29063,14 +29149,17 @@ func (u *ConfigSettingEntry) XdrRecurse(x XDR, name string) {
 	case CONFIG_SETTING_CONTRACT_BANDWIDTH_V0:
 		x.Marshal(x.Sprintf("%scontractBandwidth", name), XDR_ConfigSettingContractBandwidthV0(u.ContractBandwidth()))
 		return
-	case CONFIG_SETTING_CONTRACT_HOST_LOGIC_VERSION:
-		x.Marshal(x.Sprintf("%scontractHostLogicVersion", name), XDR_Uint32(u.ContractHostLogicVersion()))
-		return
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_CPU_INSTRUCTIONS:
 		x.Marshal(x.Sprintf("%scontractCostParamsCpuInsns", name), XDR_ContractCostParams(u.ContractCostParamsCpuInsns()))
 		return
 	case CONFIG_SETTING_CONTRACT_COST_PARAMS_MEMORY_BYTES:
 		x.Marshal(x.Sprintf("%scontractCostParamsMemBytes", name), XDR_ContractCostParams(u.ContractCostParamsMemBytes()))
+		return
+	case CONFIG_SETTING_CONTRACT_DATA_KEY_SIZE_BYTES:
+		x.Marshal(x.Sprintf("%scontractDataKeySizeBytes", name), XDR_Uint32(u.ContractDataKeySizeBytes()))
+		return
+	case CONFIG_SETTING_CONTRACT_DATA_ENTRY_SIZE_BYTES:
+		x.Marshal(x.Sprintf("%scontractDataEntrySizeBytes", name), XDR_Uint32(u.ContractDataEntrySizeBytes()))
 		return
 	}
 	XdrPanic("invalid ConfigSettingID (%v) in ConfigSettingEntry", u.ConfigSettingID)
