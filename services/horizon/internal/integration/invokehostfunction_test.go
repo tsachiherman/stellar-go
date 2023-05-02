@@ -286,8 +286,10 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
 
 	// check the function response, should have summed the two input numbers
-	scval := invokeHostFunctionResult.MustSuccess()
-	assert.Equal(t, xdr.Uint64(9), scval.MustU64())
+	scvals := invokeHostFunctionResult.MustSuccess()
+	for _, scval := range scvals {
+		assert.Equal(t, xdr.Uint64(9), scval.MustU64())
+	}
 }
 
 func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
@@ -409,8 +411,10 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
 
 	// check the function response, should have incremented state from 0 to 1
-	scval := invokeHostFunctionResult.MustSuccess()
-	assert.Equal(t, xdr.Uint32(1), scval.MustU32())
+	scvals := invokeHostFunctionResult.MustSuccess()
+	for _, scval := range scvals {
+		assert.Equal(t, xdr.Uint32(1), scval.MustU32())
+	}
 }
 
 func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFileName string) *txnbuild.InvokeHostFunctions {
@@ -512,7 +516,7 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 							Type: xdr.ContractIdTypeContractIdFromSourceAccount,
 							Salt: &saltParameter,
 						},
-						Source: xdr.ScContractExecutable{
+						Executable: xdr.ScContractExecutable{
 							Type:   xdr.ScContractExecutableTypeSccontractExecutableWasmRef,
 							WasmId: &contractHash,
 						},

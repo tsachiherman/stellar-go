@@ -899,7 +899,7 @@ func createSAC(itest *integration.Test, sourceAccount string, asset xdr.Asset) *
 							Type:  xdr.ContractIdTypeContractIdFromAsset,
 							Asset: &asset,
 						},
-						Source: xdr.ScContractExecutable{
+						Executable: xdr.ScContractExecutable{
 							Type: xdr.ScContractExecutableTypeSccontractExecutableToken,
 						},
 					},
@@ -1201,7 +1201,10 @@ func assertInvokeHostFnSucceeds(itest *integration.Test, signer *keypair.Full, o
 	invokeHostFunctionResult, ok := opResults[0].MustTr().GetInvokeHostFunctionResult()
 	assert.True(itest.CurrentTest(), ok)
 	assert.Equal(itest.CurrentTest(), invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
-	return invokeHostFunctionResult.Success, tx.Hash
+
+	require.Equal(itest.CurrentTest(), 1, len(*invokeHostFunctionResult.Success))
+	firstSuccessScVal := (*invokeHostFunctionResult.Success)[0]
+	return &firstSuccessScVal, tx.Hash
 }
 
 func stellarAssetContractID(itest *integration.Test, asset xdr.Asset) xdr.Hash {
