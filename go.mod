@@ -32,7 +32,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0
-	github.com/rs/cors v1.9.0
+	github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00
 	github.com/rubenv/sql-migrate v1.4.0
 	github.com/segmentio/go-loggly v0.5.1-0.20171222203950-eb91657e62b2
 	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749
@@ -66,6 +66,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
+	github.com/rs/xhandler v0.0.0-20170707052532-1eb70cf1520d // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	golang.org/x/sync v0.2.0 // indirect
