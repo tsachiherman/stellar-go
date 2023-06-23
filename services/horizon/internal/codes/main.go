@@ -512,6 +512,15 @@ func String(code interface{}) (string, error) {
 		case xdr.BumpFootprintExpirationResultCodeBumpFootprintExpirationResourceLimitExceeded:
 			return "resource_limit_exceeded", nil
 		}
+	case xdr.RestoreFootprintResultCode:
+		switch code {
+		case xdr.RestoreFootprintResultCodeRestoreFootprintSuccess:
+			return OpSuccess, nil
+		case xdr.RestoreFootprintResultCodeRestoreFootprintMalformed:
+			return OpMalformed, nil
+		case xdr.RestoreFootprintResultCodeRestoreFootprintResourceLimitExceeded:
+			return "resource_limit_exceeded", nil
+		}
 	}
 
 	return "", errors.New(ErrUnknownCode)
@@ -580,6 +589,8 @@ func ForOperationResult(opr xdr.OperationResult) (string, error) {
 		ic = ir.MustInvokeHostFunctionResult().Code
 	case xdr.OperationTypeBumpFootprintExpiration:
 		ic = ir.MustBumpFootprintExpirationResult().Code
+	case xdr.OperationTypeRestoreFootprint:
+		ic = ir.MustRestoreFootprintResult().Code
 	}
 
 	return String(ic)
