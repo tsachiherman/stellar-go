@@ -40,9 +40,9 @@ func TestContractInvokeHostFunctionInstallContract(t *testing.T) {
 	require.NoError(t, err)
 
 	installContractOp := assembleInstallContractCodeOp(t, itest.Master().Address(), add_u64_contract)
-	// Set a very generous fee (10 XLM) which would satisfy any contract invocation
-	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, installContractOp)
-	require.NoError(t, err)
+	preFlightOp, minFee := itest.PreflightHostFunctions(&sourceAccount, *installContractOp)
+	tx := itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
+
 	clientTx, err := itest.Client().TransactionDetail(tx.Hash)
 	require.NoError(t, err)
 
@@ -86,18 +86,17 @@ func TestContractInvokeHostFunctionCreateContractByAddress(t *testing.T) {
 	sourceAccount, err := itest.Client().AccountDetail(horizonclient.AccountRequest{
 		AccountID: itest.Master().Address(),
 	})
+	require.NoError(t, err)
 
 	// Install the contract
-
 	installContractOp := assembleInstallContractCodeOp(t, itest.Master().Address(), add_u64_contract)
-	// Set a very generous fee (10 XLM) which would satisfy any contract invocation
-	itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, installContractOp)
+	preFlightOp, minFee := itest.PreflightHostFunctions(&sourceAccount, *installContractOp)
+	itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 
 	// Create the contract
-
-	require.NoError(t, err)
 	createContractOp := assembleCreateContractOp(t, itest.Master().Address(), add_u64_contract, "a1", itest.GetPassPhrase())
-	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, createContractOp)
+	preFlightOp, minFee = itest.PreflightHostFunctions(&sourceAccount, *createContractOp)
+	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 	require.NoError(t, err)
 
 	clientTx, err := itest.Client().TransactionDetail(tx.Hash)
@@ -143,28 +142,26 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	accountId := xdr.MustAddress(sourceAccount.AccountID)
-
 	// Install the contract
-
 	installContractOp := assembleInstallContractCodeOp(t, itest.Master().Address(), add_u64_contract)
-	itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, installContractOp)
+	preFlightOp, minFee := itest.PreflightHostFunctions(&sourceAccount, *installContractOp)
+	itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 
 	// Create the contract
-
 	createContractOp := assembleCreateContractOp(t, itest.Master().Address(), add_u64_contract, "a1", itest.GetPassPhrase())
-	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, createContractOp)
+	preFlightOp, minFee = itest.PreflightHostFunctions(&sourceAccount, *createContractOp)
+	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 	require.NoError(t, err)
 
 	// contract has been deployed, now invoke a simple 'add' fn on the contract
-	contractID := createContractOp.Ext.SorobanData.Resources.Footprint.ReadWrite[0].MustContractData().Contract.ContractId
-	contractCodeLedgerKey := createContractOp.Ext.SorobanData.Resources.Footprint.ReadOnly[0]
-
+	contractID := preFlightOp.Ext.SorobanData.Resources.Footprint.ReadWrite[0].MustContractData().Contract.ContractId
 	require.NotNil(t, contractID)
-	contractIdBytes := contractID[:]
 	contractIdParameter := xdr.ScVal{
-		Type:  xdr.ScValTypeScvBytes,
-		Bytes: (*xdr.ScBytes)(&contractIdBytes),
+		Type: xdr.ScValTypeScvAddress,
+		Address: &xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: contractID,
+		},
 	}
 
 	contractFnParameterSym := xdr.ScSymbol("add")
@@ -195,62 +192,11 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 				secondParamScVal,
 			},
 		},
-		Auth: []xdr.SorobanAuthorizationEntry{
-			{
-				Credentials: xdr.SorobanCredentials{
-					Type: xdr.SorobanCredentialsTypeSorobanCredentialsAddress,
-					Address: &xdr.SorobanAddressCredentials{
-						Address: xdr.ScAddress{
-							Type:      xdr.ScAddressTypeScAddressTypeAccount,
-							AccountId: &accountId,
-						},
-						Nonce:         0,
-						SignatureArgs: nil,
-					},
-				},
-				RootInvocation: xdr.SorobanAuthorizedInvocation{
-					Function: xdr.SorobanAuthorizedFunction{
-						Type: xdr.SorobanAuthorizedFunctionTypeSorobanAuthorizedFunctionTypeContractFn,
-						ContractFn: &xdr.SorobanAuthorizedContractFunction{
-							ContractAddress: xdr.ScAddress{
-								Type:      xdr.ScAddressTypeScAddressTypeAccount,
-								AccountId: &accountId,
-							},
-							FunctionName: "foo",
-							Args:         nil,
-						},
-					},
-					SubInvocations: nil,
-				},
-			},
-		},
 		SourceAccount: sourceAccount.AccountID,
-		Ext: xdr.TransactionExt{
-			V: 1,
-			SorobanData: getMaxSorobanTransactionData(xdr.LedgerFootprint{
-				ReadOnly: []xdr.LedgerKey{
-					{
-						Type: xdr.LedgerEntryTypeContractData,
-						ContractData: &xdr.LedgerKeyContractData{
-							Contract: xdr.ScAddress{
-								Type:       xdr.ScAddressTypeScAddressTypeContract,
-								ContractId: contractID,
-							},
-							Key: xdr.ScVal{
-								// Tsachi - This need to be updated.
-								// Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
-								// symbolic: no value
-							},
-						},
-					},
-					contractCodeLedgerKey,
-				},
-				ReadWrite: []xdr.LedgerKey{},
-			}),
-		},
 	}
 
-	tx, err = itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, invokeHostFunctionOp)
+	preFlightOp, minFee = itest.PreflightHostFunctions(&sourceAccount, *invokeHostFunctionOp)
+	tx, err = itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 	require.NoError(t, err)
 
 	clientTx, err := itest.Client().TransactionDetail(tx.Hash)
@@ -269,8 +215,11 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
 
 	// check the function response, should have summed the two input numbers
-	hash := invokeHostFunctionResult.MustSuccess()
-	assert.Equal(t, xdr.Uint64(9), hash)
+	invokeResult := xdr.Uint64(9)
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvU64, U64: &invokeResult}
+	var transactionMeta xdr.TransactionMeta
+	assert.NoError(t, xdr.SafeUnmarshalBase64(tx.ResultMetaXdr, &transactionMeta))
+	assert.True(t, expectedScVal.Equals(transactionMeta.V3.SorobanMeta.ReturnValue))
 
 	clientInvokeOp, err := itest.Client().Operations(horizonclient.OperationRequest{
 		ForTransaction: tx.Hash,
@@ -279,11 +228,13 @@ func TestContractInvokeHostFunctionInvokeStatelessContractFn(t *testing.T) {
 
 	invokeHostFunctionOpJson, ok := clientInvokeOp.Embedded.Records[0].(operations.InvokeHostFunction)
 	assert.True(t, ok)
-	assert.Len(t, invokeHostFunctionOpJson.Parameters, 2)
+	assert.Len(t, invokeHostFunctionOpJson.Parameters, 4)
 	assert.Equal(t, invokeHostFunctionOpJson.Function, "HostFunctionTypeHostFunctionTypeInvokeContract")
 	assert.Equal(t, invokeHostFunctionOpJson.Type, "invoke_contract")
-	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Value, "AAAADQAAACDhq+vRxjISTR62JpK1SAnzz1cZKpSpkRlwLJH6Zrzssg==")
-	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Type, "Bytes")
+	addressParam, err := xdr.MarshalBase64(contractIdParameter)
+	require.NoError(t, err)
+	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Value, addressParam)
+	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Type, "Address")
 	assert.Equal(t, invokeHostFunctionOpJson.Parameters[1].Value, "AAAADwAAAANhZGQA")
 	assert.Equal(t, invokeHostFunctionOpJson.Parameters[1].Type, "Sym")
 	assert.Equal(t, invokeHostFunctionOpJson.Parameters[2].Value, "AAAABQAAAAAAAAAE")
@@ -310,22 +261,25 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 	// Install the contract
 
 	installContractOp := assembleInstallContractCodeOp(t, itest.Master().Address(), increment_contract)
-	itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, installContractOp)
+	preFlightOp, minFee := itest.PreflightHostFunctions(&sourceAccount, *installContractOp)
+	itest.MustSubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 
 	// Create the contract
 
 	createContractOp := assembleCreateContractOp(t, itest.Master().Address(), increment_contract, "a1", itest.GetPassPhrase())
-	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, createContractOp)
+	preFlightOp, minFee = itest.PreflightHostFunctions(&sourceAccount, *createContractOp)
+	tx, err := itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 	require.NoError(t, err)
 
 	// contract has been deployed, now invoke a simple 'add' fn on the contract
-	contractID := createContractOp.Ext.SorobanData.Resources.Footprint.ReadWrite[0].MustContractData().Contract.ContractId
-	contractCodeLedgerKey := createContractOp.Ext.SorobanData.Resources.Footprint.ReadOnly[0]
+	contractID := preFlightOp.Ext.SorobanData.Resources.Footprint.ReadWrite[0].MustContractData().Contract.ContractId
 	require.NotNil(t, contractID)
-	contractIdBytes := contractID[:]
 	contractIdParameter := xdr.ScVal{
-		Type:  xdr.ScValTypeScvBytes,
-		Bytes: (*xdr.ScBytes)(&contractIdBytes),
+		Type: xdr.ScValTypeScvAddress,
+		Address: &xdr.ScAddress{
+			Type:       xdr.ScAddressTypeScAddressTypeContract,
+			ContractId: contractID,
+		},
 	}
 
 	contractFnParameterSym := xdr.ScSymbol("increment")
@@ -334,7 +288,6 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 		Sym:  &contractFnParameterSym,
 	}
 
-	contractStateFootprintSym := xdr.ScSymbol("COUNTER")
 	invokeHostFunctionOp := &txnbuild.InvokeHostFunction{
 		HostFunction: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
@@ -344,46 +297,10 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 			},
 		},
 		SourceAccount: sourceAccount.AccountID,
-		Ext: xdr.TransactionExt{
-			V: 1,
-			SorobanData: getMaxSorobanTransactionData(xdr.LedgerFootprint{
-				ReadOnly: []xdr.LedgerKey{
-					{
-						Type: xdr.LedgerEntryTypeContractData,
-						ContractData: &xdr.LedgerKeyContractData{
-							Contract: xdr.ScAddress{
-								Type:       xdr.ScAddressTypeScAddressTypeContract,
-								ContractId: contractID,
-							},
-							Key: xdr.ScVal{
-								// Tsachi - This need to be updated.
-								// Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
-								// symbolic: no value
-							},
-						},
-					},
-					contractCodeLedgerKey,
-				},
-				ReadWrite: []xdr.LedgerKey{
-					{
-						Type: xdr.LedgerEntryTypeContractData,
-						ContractData: &xdr.LedgerKeyContractData{
-							Contract: xdr.ScAddress{
-								Type:       xdr.ScAddressTypeScAddressTypeContract,
-								ContractId: contractID,
-							},
-							Key: xdr.ScVal{
-								Type: xdr.ScValTypeScvSymbol,
-								Sym:  &contractStateFootprintSym,
-							},
-						},
-					},
-				},
-			}),
-		},
 	}
 
-	tx, err = itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), 10*stroopsIn1XLM, invokeHostFunctionOp)
+	preFlightOp, minFee = itest.PreflightHostFunctions(&sourceAccount, *invokeHostFunctionOp)
+	tx, err = itest.SubmitOperationsWithFee(&sourceAccount, itest.Master(), minFee, &preFlightOp)
 	require.NoError(t, err)
 
 	clientTx, err := itest.Client().TransactionDetail(tx.Hash)
@@ -402,8 +319,11 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 	assert.Equal(t, invokeHostFunctionResult.Code, xdr.InvokeHostFunctionResultCodeInvokeHostFunctionSuccess)
 
 	// check the function response, should have incremented state from 0 to 1
-	hash := invokeHostFunctionResult.MustSuccess()
-	assert.Equal(t, xdr.Uint32(1), hash)
+	invokeResult := xdr.Uint32(1)
+	expectedScVal := xdr.ScVal{Type: xdr.ScValTypeScvU32, U32: &invokeResult}
+	var transactionMeta xdr.TransactionMeta
+	assert.NoError(t, xdr.SafeUnmarshalBase64(clientTx.ResultMetaXdr, &transactionMeta))
+	assert.True(t, expectedScVal.Equals(transactionMeta.V3.SorobanMeta.ReturnValue))
 
 	clientInvokeOp, err := itest.Client().Operations(horizonclient.OperationRequest{
 		ForTransaction: tx.Hash,
@@ -415,30 +335,12 @@ func TestContractInvokeHostFunctionInvokeStatefulContractFn(t *testing.T) {
 	assert.Len(t, invokeHostFunctionOpJson.Parameters, 2)
 	assert.Equal(t, invokeHostFunctionOpJson.Function, "HostFunctionTypeHostFunctionTypeInvokeContract")
 	assert.Equal(t, invokeHostFunctionOpJson.Type, "invoke_contract")
-	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Value, "AAAADQAAACDhq+vRxjISTR62JpK1SAnzz1cZKpSpkRlwLJH6Zrzssg==")
-	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Type, "Bytes")
+	addressParam, err := xdr.MarshalBase64(contractIdParameter)
+	require.NoError(t, err)
+	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Value, addressParam)
+	assert.Equal(t, invokeHostFunctionOpJson.Parameters[0].Type, "Address")
 	assert.Equal(t, invokeHostFunctionOpJson.Parameters[1].Value, "AAAADwAAAAlpbmNyZW1lbnQAAAA=")
 	assert.Equal(t, invokeHostFunctionOpJson.Parameters[1].Type, "Sym")
-}
-
-const stroopsIn1XLM = int64(10_000_000)
-
-func getMaxSorobanTransactionData(fp xdr.LedgerFootprint) *xdr.SorobanTransactionData {
-	// From https://soroban.stellar.org/docs/learn/fees-and-metering#resource-limits
-	return &xdr.SorobanTransactionData{
-		Resources: xdr.SorobanResources{
-			Footprint:                 fp,
-			Instructions:              40_000_000,
-			ReadBytes:                 200 * 1024,
-			WriteBytes:                100 * 1024,
-			ExtendedMetaDataSizeBytes: 200 * 1024,
-		},
-		// 1 XML should be future-proof
-		RefundableFee: 1 * xdr.Int64(stroopsIn1XLM),
-		Ext: xdr.ExtensionPoint{
-			V: 0,
-		},
-	}
 }
 
 func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFileName string) *txnbuild.InvokeHostFunction {
@@ -449,27 +351,12 @@ func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFileN
 	require.NoError(t, err)
 	t.Logf("Contract File Contents: %v", hex.EncodeToString(contract))
 
-	contractHash := sha256.Sum256(contract)
-
 	return &txnbuild.InvokeHostFunction{
 		HostFunction: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeUploadContractWasm,
 			Wasm: &contract,
 		},
 		SourceAccount: sourceAccount,
-		Ext: xdr.TransactionExt{
-			V: 1,
-			SorobanData: getMaxSorobanTransactionData(xdr.LedgerFootprint{
-				ReadWrite: []xdr.LedgerKey{
-					{
-						Type: xdr.LedgerEntryTypeContractCode,
-						ContractCode: &xdr.LedgerKeyContractCode{
-							Hash: contractHash,
-						},
-					},
-				},
-			}),
-		},
 	}
 }
 
@@ -484,41 +371,9 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 	t.Logf("Salt hash: %v", hex.EncodeToString(salt[:]))
 	saltParameter := xdr.Uint256(salt)
 
-	networkId := xdr.Hash(sha256.Sum256([]byte(passPhrase)))
 	accountId := xdr.MustAddress(sourceAccount)
-	preImage := xdr.HashIdPreimage{
-		Type: xdr.EnvelopeTypeEnvelopeTypeContractId,
-		ContractId: &xdr.HashIdPreimageContractId{
-			NetworkId: networkId,
-			ContractIdPreimage: xdr.ContractIdPreimage{
-				Type: xdr.ContractIdPreimageTypeContractIdPreimageFromAddress,
-				FromAddress: &xdr.ContractIdPreimageFromAddress{
-					Address: xdr.ScAddress{
-						Type:      xdr.ScAddressTypeScAddressTypeAccount,
-						AccountId: &accountId,
-					},
-					Salt: salt,
-				},
-			},
-		},
-	}
-	xdrPreImageBytes, err := preImage.MarshalBinary()
 	require.NoError(t, err)
-	var hashedContractID xdr.Hash = sha256.Sum256(xdrPreImageBytes)
-
 	contractHash := xdr.Hash(sha256.Sum256(contract))
-
-	ledgerKey := xdr.LedgerKeyContractData{
-		Contract: xdr.ScAddress{
-			Type:       xdr.ScAddressTypeScAddressTypeContract,
-			ContractId: &hashedContractID,
-		},
-		Key: xdr.ScVal{
-			// Tsachi - This need to be updated.
-			//Type: xdr.ScValTypeScvLedgerKeyContractExecutable,
-			// symbolic: no value
-		},
-	}
 
 	return &txnbuild.InvokeHostFunction{
 		HostFunction: xdr.HostFunction{
@@ -541,24 +396,5 @@ func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFileName s
 			},
 		},
 		SourceAccount: sourceAccount,
-		Ext: xdr.TransactionExt{
-			V: 1,
-			SorobanData: getMaxSorobanTransactionData(xdr.LedgerFootprint{
-				ReadWrite: []xdr.LedgerKey{
-					{
-						Type:         xdr.LedgerEntryTypeContractData,
-						ContractData: &ledgerKey,
-					},
-				},
-				ReadOnly: []xdr.LedgerKey{
-					{
-						Type: xdr.LedgerEntryTypeContractCode,
-						ContractCode: &xdr.LedgerKeyContractCode{
-							Hash: contractHash,
-						},
-					},
-				},
-			}),
-		},
 	}
 }
