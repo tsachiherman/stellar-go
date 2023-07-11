@@ -6,9 +6,9 @@ file. This project adheres to [Semantic Versioning](http://semver.org/).
 ## Unreleased
 
 ### Changes
-
 - Update XDR definitions for soroban usage ([4576](https://github.com/stellar/go/pull/4576))
 - Include InvokeHostFunction Details on Operation API resources ([4608](https://github.com/stellar/go/pull/4608))
+- The command line flag --remote-captive-core-url has been removed as remote captive core functionality is now deprecated  ([4940](https://github.com/stellar/go/pull/4940)).
 
 
 ## 2.26.0
