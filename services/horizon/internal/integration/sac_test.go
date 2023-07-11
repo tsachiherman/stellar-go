@@ -1015,36 +1015,6 @@ func transferFromContract(itest *integration.Test, sourceAccount string, asset x
 	return invokeHostFn
 }
 
-func transferFromContract(itest *integration.Test, sourceAccount string, asset xdr.Asset, sacTestcontractID xdr.Hash, sacTestContractHash xdr.Hash, assetAmount string, recipient xdr.ScVal) *txnbuild.InvokeHostFunctions {
-	footPrint := footprintForRecipientAddress(itest, asset, *recipient.Address)
-	footPrint.ReadOnly = append(footPrint.ReadOnly, tokenLedgerKey(sacTestcontractID))
-	footPrint.ReadOnly = append(footPrint.ReadOnly, sacTestContractCodeLedgerKeys(sacTestcontractID, sacTestContractHash)...)
-	footPrint.ReadWrite = append(footPrint.ReadWrite, addressLedgerKeys(itest, asset, *contractAddressParam(sacTestcontractID).Address)...)
-
-	invokeHostFn := &txnbuild.InvokeHostFunctions{
-		Functions: []xdr.HostFunction{
-			{
-				Args: xdr.HostFunctionArgs{
-					Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
-					InvokeContract: &xdr.ScVec{
-						contractIDParam(sacTestcontractID),
-						functionNameParam("transfer"),
-						recipient,
-						i128Param(0, uint64(amount.MustParse(assetAmount))),
-					},
-				},
-			},
-		},
-		SourceAccount: sourceAccount,
-		Ext: xdr.TransactionExt{
-			V:           1,
-			SorobanData: getMaxSorobanTransactionData(footPrint),
-		},
-	}
-
-	return invokeHostFn
-}
-
 // Invokes burn_self from the sac_test contract (which just burns assets from itself)
 func burnSelf(itest *integration.Test, sourceAccount string, asset xdr.Asset, sacTestcontractID xdr.Hash, sacTestContractHash xdr.Hash, assetAmount string) *txnbuild.InvokeHostFunction {
 	invokeHostFn := &txnbuild.InvokeHostFunction{
