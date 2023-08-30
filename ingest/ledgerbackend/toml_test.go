@@ -233,15 +233,16 @@ func checkTestingAboveProtocol19() bool {
 
 func TestGenerateConfig(t *testing.T) {
 	testCases := []struct {
-		name                           string
-		appendPath                     string
-		mode                           stellarCoreRunnerMode
-		expectedPath                   string
-		httpPort                       *uint
-		peerPort                       *uint
-		logPath                        *string
-		useDB                          bool
-		enforceSorobanDiagnosticEvents bool
+		name                            string
+		appendPath                      string
+		mode                            stellarCoreRunnerMode
+		expectedPath                    string
+		httpPort                        *uint
+		peerPort                        *uint
+		logPath                         *string
+		useDB                           bool
+		enforceSorobanDiagnosticEvents  bool
+		enforceSorobanHighLimitOverride bool
 	}{
 		{
 			name:         "offline config with no appendix",
@@ -318,40 +319,44 @@ func TestGenerateConfig(t *testing.T) {
 		}}
 	if checkTestingAboveProtocol19() {
 		testCases = append(testCases, []struct {
-			name                           string
-			appendPath                     string
-			mode                           stellarCoreRunnerMode
-			expectedPath                   string
-			httpPort                       *uint
-			peerPort                       *uint
-			logPath                        *string
-			useDB                          bool
-			enforceSorobanDiagnosticEvents bool
+			name                            string
+			appendPath                      string
+			mode                            stellarCoreRunnerMode
+			expectedPath                    string
+			httpPort                        *uint
+			peerPort                        *uint
+			logPath                         *string
+			useDB                           bool
+			enforceSorobanDiagnosticEvents  bool
+			enforceSorobanHighLimitOverride bool
 		}{
 			{
-				name:                           "offline config with enforce diagnostic events",
-				mode:                           stellarCoreRunnerModeOffline,
-				expectedPath:                   filepath.Join("testdata", "expected-offline-enforce-diagnostic-events.cfg"),
-				logPath:                        nil,
-				enforceSorobanDiagnosticEvents: true,
+				name:                            "offline config with enforce diagnostic events",
+				mode:                            stellarCoreRunnerModeOffline,
+				expectedPath:                    filepath.Join("testdata", "expected-offline-enforce-diagnostic-events.cfg"),
+				logPath:                         nil,
+				enforceSorobanDiagnosticEvents:  true,
+				enforceSorobanHighLimitOverride: true,
 			},
 			{
-				name:                           "offline config disabling enforced diagnostic events",
-				mode:                           stellarCoreRunnerModeOffline,
-				expectedPath:                   filepath.Join("testdata", "expected-offline-enforce-disabled-diagnostic-events.cfg"),
-				appendPath:                     filepath.Join("testdata", "appendix-disable-diagnostic-events.cfg"),
-				logPath:                        nil,
-				enforceSorobanDiagnosticEvents: true,
+				name:                            "offline config disabling enforced diagnostic events",
+				mode:                            stellarCoreRunnerModeOffline,
+				expectedPath:                    filepath.Join("testdata", "expected-offline-enforce-disabled-diagnostic-events.cfg"),
+				appendPath:                      filepath.Join("testdata", "appendix-disable-diagnostic-events.cfg"),
+				logPath:                         nil,
+				enforceSorobanDiagnosticEvents:  true,
+				enforceSorobanHighLimitOverride: true,
 			},
 			{
-				name:                           "online config with enforce diagnostic events",
-				mode:                           stellarCoreRunnerModeOnline,
-				appendPath:                     filepath.Join("testdata", "sample-appendix.cfg"),
-				expectedPath:                   filepath.Join("testdata", "expected-online-with-no-http-port-diag-events.cfg"),
-				httpPort:                       nil,
-				peerPort:                       newUint(12345),
-				logPath:                        nil,
-				enforceSorobanDiagnosticEvents: true,
+				name:                            "online config with enforce diagnostic events",
+				mode:                            stellarCoreRunnerModeOnline,
+				appendPath:                      filepath.Join("testdata", "sample-appendix.cfg"),
+				expectedPath:                    filepath.Join("testdata", "expected-online-with-no-http-port-diag-events.cfg"),
+				httpPort:                        nil,
+				peerPort:                        newUint(12345),
+				logPath:                         nil,
+				enforceSorobanDiagnosticEvents:  true,
+				enforceSorobanHighLimitOverride: true,
 			},
 			{
 				name:         "offline config with minimum persistent entry in appendix",
@@ -368,14 +373,15 @@ func TestGenerateConfig(t *testing.T) {
 			var err error
 			var captiveCoreToml *CaptiveCoreToml
 			params := CaptiveCoreTomlParams{
-				NetworkPassphrase:              "Public Global Stellar Network ; September 2015",
-				HistoryArchiveURLs:             []string{"http://localhost:1170"},
-				HTTPPort:                       testCase.httpPort,
-				PeerPort:                       testCase.peerPort,
-				LogPath:                        testCase.logPath,
-				Strict:                         false,
-				UseDB:                          testCase.useDB,
-				EnforceSorobanDiagnosticEvents: testCase.enforceSorobanDiagnosticEvents,
+				NetworkPassphrase:               "Public Global Stellar Network ; September 2015",
+				HistoryArchiveURLs:              []string{"http://localhost:1170"},
+				HTTPPort:                        testCase.httpPort,
+				PeerPort:                        testCase.peerPort,
+				LogPath:                         testCase.logPath,
+				Strict:                          false,
+				UseDB:                           testCase.useDB,
+				EnforceSorobanDiagnosticEvents:  testCase.enforceSorobanDiagnosticEvents,
+				EnforceSorobanHighLimitOverride: testCase.enforceSorobanHighLimitOverride,
 			}
 			if testCase.appendPath != "" {
 				captiveCoreToml, err = NewCaptiveCoreTomlFromFile(testCase.appendPath, params)

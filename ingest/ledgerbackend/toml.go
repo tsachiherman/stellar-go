@@ -330,6 +330,8 @@ type CaptiveCoreTomlParams struct {
 	CoreBinaryPath string
 	// Enforce EnableSorobanDiagnosticEvents when not disabled explicitly
 	EnforceSorobanDiagnosticEvents bool
+	// Enforce TestingSorobanHighLimitOverride when not disabled explicitly
+	EnforceSorobanHighLimitOverride bool
 }
 
 // NewCaptiveCoreTomlFromFile constructs a new CaptiveCoreToml instance by merging configuration
@@ -561,17 +563,33 @@ func (c *CaptiveCoreToml) setDefaults(params CaptiveCoreTomlParams) {
 		}
 	}
 
-	// starting version 20, we have dignostics events.
-	if params.EnforceSorobanDiagnosticEvents && coreVersion.IsProtocolVersionEqualOrAbove(MinimalSorobanProtocolSupport) {
-		if c.EnableSorobanDiagnosticEvents == nil {
-			// We are generating the file from scratch or the user didn't explicitly oppose to diagnostic events in the config file.
-			// Enforce it.
-			t := true
-			c.EnableSorobanDiagnosticEvents = &t
+	// starting version 20, we need to have few options turned on.
+	if coreVersion.IsProtocolVersionEqualOrAbove(MinimalSorobanProtocolSupport) {
+		// enable diagnostics events unless explicitly disabled.
+		if params.EnforceSorobanDiagnosticEvents {
+			if c.EnableSorobanDiagnosticEvents == nil {
+				// We are generating the file from scratch or the user didn't explicitly oppose to diagnostic events in the config file.
+				// Enforce it.
+				t := true
+				c.EnableSorobanDiagnosticEvents = &t
+			}
+			if !*c.EnableSorobanDiagnosticEvents {
+				// The user opposed to diagnostic events in the config file, so we'll reset the option
+				c.EnableSorobanDiagnosticEvents = nil
+			}
 		}
-		if !*c.EnableSorobanDiagnosticEvents {
-			// The user opposed to diagnostic events in the config file, but there is no need to pass on the option
-			c.EnableSorobanDiagnosticEvents = nil
+		// enable soroban high limits ( for testing ) unless explicitly disabled.
+		if params.EnforceSorobanHighLimitOverride {
+			if c.TestingSorobanHighLimitOverride == nil {
+				// We are generating the file from scratch or the user didn't explicitly oppose to high limits in the config file.
+				// Enforce it.
+				t := true
+				c.TestingSorobanHighLimitOverride = &t
+			}
+			if !*c.TestingSorobanHighLimitOverride {
+				// The user opposed to soroban high limits in the config file, so we'll reset the option
+				c.TestingSorobanHighLimitOverride = nil
+			}
 		}
 	}
 }
